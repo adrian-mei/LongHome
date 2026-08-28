@@ -18,6 +18,7 @@ interface MemorialRow {
   name: string;
   slug: string;
   story: string | null;
+  story_ai_assisted: number;
   visibility: Visibility;
 }
 
@@ -126,6 +127,11 @@ export function createStore(dataDir: string): LongHomeStore {
   if (!memorialColumnNames.has("steward_token_hash")) {
     database.exec("ALTER TABLE memorials ADD COLUMN steward_token_hash TEXT");
   }
+  if (!memorialColumnNames.has("story_ai_assisted")) {
+    database.exec(
+      "ALTER TABLE memorials ADD COLUMN story_ai_assisted INTEGER NOT NULL DEFAULT 0 CHECK (story_ai_assisted IN (0, 1))",
+    );
+  }
 
   database.exec(`
     CREATE UNIQUE INDEX IF NOT EXISTS memorial_steward_token
@@ -164,6 +170,7 @@ export function createStore(dataDir: string): LongHomeStore {
       name: row.name,
       slug: row.slug,
       story: row.story,
+      storyAiAssisted: Boolean(row.story_ai_assisted),
       visibility: row.visibility,
     };
   }
@@ -178,10 +185,10 @@ export function createStore(dataDir: string): LongHomeStore {
   const insertMemorial = database.prepare(`
     INSERT INTO memorials (
       id, slug, name, birth_date, death_date, story,
-      visibility, steward_token_hash
+      story_ai_assisted, visibility, steward_token_hash
     ) VALUES (
       @id, @slug, @name, @birthDate, @deathDate, @story,
-      @visibility, @stewardTokenHash
+      @storyAiAssisted, @visibility, @stewardTokenHash
     )
   `);
   const insertMedia = database.prepare(`
@@ -197,7 +204,10 @@ export function createStore(dataDir: string): LongHomeStore {
   `);
 
   const createTransaction = database.transaction((input: NewMemorial) => {
-    insertMemorial.run(input);
+    insertMemorial.run({
+      ...input,
+      storyAiAssisted: input.storyAiAssisted ? 1 : 0,
+    });
     for (const item of input.media) {
       insertMedia.run({ ...item, memorialId: input.id });
     }

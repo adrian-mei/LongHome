@@ -25,6 +25,13 @@ import {
   inviteCookieName,
   stewardCookieName,
 } from "./access.js";
+import {
+  aiProviderLabel,
+  draftMemorialStory,
+  type StoryDraftInput,
+  type StoryLength,
+  type StoryTone,
+} from "./ai.js";
 import { loadConfig, type LongHomeConfig } from "./config.js";
 import { createStore } from "./store.js";
 import type {
@@ -48,6 +55,8 @@ const videoTypes = new Map([
   ["video/quicktime", ".mov"],
 ]);
 const visibilityValues = new Set<Visibility>(["public", "unlisted", "private"]);
+const storyLengths = new Set<StoryLength>(["short", "medium", "long"]);
+const storyTones = new Set<StoryTone>(["warm", "factual", "celebratory"]);
 
 class UploadError extends Error {}
 
@@ -57,7 +66,12 @@ interface FormValues {
   invitees: string;
   name: string;
   story: string;
+  storyAiAssisted: string;
   visibility: string;
+}
+
+interface AppDependencies {
+  draftStory?: typeof draftMemorialStory;
 }
 
 interface CreatedInvite {
@@ -102,6 +116,14 @@ function bytesToLabel(bytes: number): string {
 
 function isVisibility(value: string): value is Visibility {
   return visibilityValues.has(value as Visibility);
+}
+
+function isStoryLength(value: string): value is StoryLength {
+  return storyLengths.has(value as StoryLength);
+}
+
+function isStoryTone(value: string): value is StoryTone {
+  return storyTones.has(value as StoryTone);
 }
 
 function validateFields(values: FormValues): string | null {
@@ -154,8 +176,10 @@ async function saveUpload(
 
 export async function createApp(
   overrides: Partial<LongHomeConfig> = {},
+  dependencies: AppDependencies = {},
 ): Promise<FastifyInstance> {
   const config = loadConfig(overrides);
+  const draftStory = dependencies.draftStory || draftMemorialStory;
   const store = createStore(config.dataDir);
   const app = Fastify({
     logger: process.env.NODE_ENV !== "test",
@@ -268,6 +292,8 @@ export async function createApp(
 
   app.get("/new", async (_request, reply) => {
     return reply.view("new.ejs", {
+      aiEnabled: Boolean(config.ai),
+      aiProvider: config.ai ? aiProviderLabel(config.ai) : null,
       error: null,
       maxPhotoMb: bytesToLabel(config.maxPhotoBytes),
       maxVideoMb: bytesToLabel(config.maxVideoBytes),
@@ -278,10 +304,71 @@ export async function createApp(
         invitees: "Family and friends",
         name: "",
         story: "",
+        storyAiAssisted: "0",
         visibility: "public",
       },
     });
   });
+
+  app.post(
+    "/assist/story",
+    { config: { rateLimit: { max: 5, timeWindow: "10 minutes" } } },
+    async (request, reply) => {
+      reply.header("Cache-Control", "no-store");
+      if (!config.ai) {
+        return reply.code(404).send({
+          error: "AI story assistance is not configured on this LongHome.",
+        });
+      }
+
+      const body = formBody(request);
+      if (
+        config.writeToken &&
+        !tokenMatches(body.writeToken || "", config.writeToken)
+      ) {
+        return reply.code(401).send({ error: "The publishing token is incorrect." });
+      }
+
+      const input: StoryDraftInput = {
+        birthDate: body.birthDate || null,
+        deathDate: body.deathDate || null,
+        length: body.length as StoryLength,
+        name: (body.name || "").trim(),
+        story: (body.story || "").trim(),
+        tone: body.tone as StoryTone,
+      };
+      if (!input.name || input.name.length > 120) {
+        return reply.code(400).send({ error: "Add a valid name first." });
+      }
+      if (!input.story || input.story.length > 10_000) {
+        return reply.code(400).send({
+          error: "Add some memories or rough notes, up to 10,000 characters.",
+        });
+      }
+      if (
+        (input.birthDate && !isIsoDate(input.birthDate)) ||
+        (input.deathDate && !isIsoDate(input.deathDate)) ||
+        (input.birthDate && input.deathDate && input.birthDate > input.deathDate)
+      ) {
+        return reply.code(400).send({ error: "Check the memorial dates first." });
+      }
+      if (!isStoryTone(body.tone || "") || !isStoryLength(body.length || "")) {
+        return reply.code(400).send({ error: "Choose a valid tone and length." });
+      }
+
+      try {
+        return reply.send({ draft: await draftStory(config.ai, input) });
+      } catch {
+        request.log.warn(
+          { provider: config.ai.provider },
+          "AI story assistance failed",
+        );
+        return reply.code(502).send({
+          error: "The story assistant could not respond. Your notes are unchanged.",
+        });
+      }
+    },
+  );
 
   app.post(
     "/memorials",
@@ -295,6 +382,7 @@ export async function createApp(
         invitees: "",
         name: "",
         story: "",
+        storyAiAssisted: "0",
         visibility: "public",
       };
       let writeToken = "";
@@ -305,6 +393,8 @@ export async function createApp(
       const fail = async (message: string) => {
         await rm(memorialMediaDir, { force: true, recursive: true });
         return reply.code(400).view("new.ejs", {
+          aiEnabled: Boolean(config.ai),
+          aiProvider: config.ai ? aiProviderLabel(config.ai) : null,
           error: message,
           maxPhotoMb: bytesToLabel(config.maxPhotoBytes),
           maxVideoMb: bytesToLabel(config.maxVideoBytes),
@@ -323,6 +413,9 @@ export async function createApp(
             if (part.fieldname === "birthDate") values.birthDate = value;
             if (part.fieldname === "deathDate") values.deathDate = value;
             if (part.fieldname === "story") values.story = value;
+            if (part.fieldname === "storyAiAssisted") {
+              values.storyAiAssisted = value;
+            }
             if (part.fieldname === "visibility") values.visibility = value;
             if (part.fieldname === "invitees") values.invitees = value;
             continue;
@@ -425,6 +518,9 @@ export async function createApp(
               : slugify(values.name),
           stewardTokenHash: hashAccessToken(stewardToken),
           story: values.story.trim() || null,
+          storyAiAssisted: Boolean(
+            config.ai && values.story.trim() && values.storyAiAssisted === "1",
+          ),
           visibility: values.visibility as Visibility,
         });
       } catch (error) {

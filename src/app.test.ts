@@ -5,6 +5,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import type { Response } from "light-my-request";
 import { createApp } from "./app.js";
+import type { StoryDraftInput } from "./ai.js";
+import type { LongHomeAiConfig } from "./config.js";
 
 const apps: FastifyInstance[] = [];
 const directories: string[] = [];
@@ -22,6 +24,24 @@ async function testApp(writeToken: string | null = null) {
   const dataDir = await mkdtemp(join(tmpdir(), "longhome-test-"));
   directories.push(dataDir);
   const app = await createApp({ dataDir, writeToken });
+  apps.push(app);
+  return app;
+}
+
+async function testAiApp(
+  writeToken: string | null = null,
+  draftStory: (config: LongHomeAiConfig, input: StoryDraftInput) => Promise<string> =
+    async () => "A family-reviewed draft.",
+) {
+  const dataDir = await mkdtemp(join(tmpdir(), "longhome-ai-test-"));
+  directories.push(dataDir);
+  const ai: LongHomeAiConfig = {
+    apiKey: "test-key",
+    model: "test-model",
+    provider: "openai",
+    timeoutMs: 1_000,
+  };
+  const app = await createApp({ ai, dataDir, writeToken }, { draftStory });
   apps.push(app);
   return app;
 }
@@ -84,6 +104,123 @@ describe("LongHome", () => {
     const response = await app.inject({ method: "GET", url: "/health" });
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ ok: true });
+  });
+
+  it("keeps AI assistance absent when no provider is configured", async () => {
+    const app = await testApp();
+    const form = await app.inject({ method: "GET", url: "/new" });
+    expect(form.body).not.toContain("Help me shape this story");
+    const response = await app.inject({
+      method: "POST",
+      payload: { length: "short", name: "Test", story: "Some notes", tone: "warm" },
+      url: "/assist/story",
+    });
+    expect(response.statusCode).toBe(404);
+  });
+
+  it("creates a reviewed draft without publishing it", async () => {
+    let received: StoryDraftInput | null = null;
+    const app = await testAiApp(null, async (_config, input) => {
+      received = input;
+      return "A shaped story that still needs family review.";
+    });
+    const form = await app.inject({ method: "GET", url: "/new" });
+    expect(form.body).toContain("Help me shape this story");
+    expect(form.body).toContain("Photos and videos are never sent");
+
+    const response = await app.inject({
+      method: "POST",
+      payload: {
+        birthDate: "1944-01-02",
+        deathDate: "",
+        length: "short",
+        name: "Draft Person",
+        story: "They cared for a garden and their neighbors.",
+        tone: "warm",
+      },
+      url: "/assist/story",
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      draft: "A shaped story that still needs family review.",
+    });
+    expect(received).toMatchObject({
+      birthDate: "1944-01-02",
+      deathDate: null,
+      length: "short",
+      name: "Draft Person",
+      tone: "warm",
+    });
+
+    const home = await app.inject({ method: "GET", url: "/" });
+    expect(home.body).not.toContain("Draft Person");
+  });
+
+  it("protects provider calls with the publishing token", async () => {
+    let calls = 0;
+    const app = await testAiApp("family-secret", async () => {
+      calls += 1;
+      return "Draft";
+    });
+    const denied = await app.inject({
+      method: "POST",
+      payload: {
+        length: "medium",
+        name: "Protected Person",
+        story: "Family notes",
+        tone: "factual",
+        writeToken: "wrong",
+      },
+      url: "/assist/story",
+    });
+    expect(denied.statusCode).toBe(401);
+    expect(calls).toBe(0);
+
+    const allowed = await app.inject({
+      method: "POST",
+      payload: {
+        length: "medium",
+        name: "Protected Person",
+        story: "Family notes",
+        tone: "factual",
+        writeToken: "family-secret",
+      },
+      url: "/assist/story",
+    });
+    expect(allowed.statusCode).toBe(200);
+    expect(calls).toBe(1);
+  });
+
+  it("records AI provenance for stewards but not public visitors", async () => {
+    const app = await testAiApp();
+    const multipart = multipartBody({
+      name: "Assisted Story",
+      story: "The reviewed final story.",
+      storyAiAssisted: "1",
+    });
+    const created = await app.inject({
+      headers: { "content-type": multipart.contentType },
+      method: "POST",
+      payload: multipart.body,
+      url: "/memorials",
+    });
+    const memorialPath = extract(created.body, /href="(\/m\/assisted-story-[^"]+)"/);
+    const stewardToken = extract(created.body, /\/steward\/([a-zA-Z0-9_-]+)/);
+
+    const publicPage = await app.inject({ method: "GET", url: memorialPath });
+    expect(publicPage.body).toContain("The reviewed final story.");
+    expect(publicPage.body).not.toContain("AI-assisted");
+
+    const accepted = await app.inject({
+      method: "GET",
+      url: `/steward/${stewardToken}`,
+    });
+    const manage = await app.inject({
+      headers: { cookie: responseCookie(accepted) },
+      method: "GET",
+      url: String(accepted.headers.location),
+    });
+    expect(manage.body).toContain("AI-assisted draft");
   });
 
   it("creates a memorial with a required photo and optional story", async () => {

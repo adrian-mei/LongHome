@@ -47,6 +47,7 @@ describe("LongHomeStore migrations", () => {
     const store = createStore(dataDir);
     const memorial = store.getMemorial("legacy-person");
     expect(memorial?.name).toBe("Legacy Person");
+    expect(memorial?.storyAiAssisted).toBe(false);
     expect(memorial?.visibility).toBe("public");
     expect(store.listPublicMemorials()).toHaveLength(1);
     store.close();

@@ -19,6 +19,7 @@ export interface Memorial {
   name: string;
   slug: string;
   story: string | null;
+  storyAiAssisted: boolean;
   visibility: Visibility;
 }
 
@@ -45,6 +46,7 @@ export interface NewMemorial {
   slug: string;
   stewardTokenHash: string;
   story: string | null;
+  storyAiAssisted: boolean;
   visibility: Visibility;
   invites: NewMemorialInvite[];
 }

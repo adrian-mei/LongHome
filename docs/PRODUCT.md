@@ -25,6 +25,17 @@ Every new memorial receives a private steward capability. Stewards can move the 
 between visibility modes, create separately revocable invitations, and revoke access.
 LongHome creates links but does not send email.
 
+## Optional AI assistance
+
+A self-hoster may connect one hosted text provider—OpenAI, Anthropic Claude, or Google
+Gemini—to help a family shape its own notes into a memorial-story draft during creation.
+The feature is disabled by default and the rest of LongHome never depends on it.
+
+Each request requires explicit family consent. Only the entered name, dates, and story
+text are sent; photographs and videos remain inside LongHome. Generated text is always a
+preview and cannot bypass the ordinary family-reviewed publishing form. LongHome records
+AI-assisted provenance for the steward but does not label the public memorial.
+
 ## Operating model
 
 LongHome is an independent, founder-owned open-source project. It is not part of the
@@ -43,5 +54,7 @@ repository, or promise.
 - Exportability and recoverable storage matter more than lock-in.
 - The software preserves a person; it does not impersonate them.
 - AI simulations of deceased people are outside the project boundary.
+- AI writing assistance must use only family-supplied facts, never publish automatically,
+  and never speak as the deceased.
 - “Permanent” must never mean “trust this one company forever.” Self-hosting and portable
   data are the first continuity mechanism.

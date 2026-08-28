@@ -16,6 +16,8 @@ LongHome is a standalone personal project. It is not part of the Cogito product 
 - Create a memorial from one simple upload form.
 - Require at least one photo; accept up to 12.
 - Add optional birth and end dates, a story, and up to 4 videos.
+- Optionally shape family-written notes into a reviewed story draft with OpenAI, Claude,
+  or Gemini.
 - Publish a stable memorial URL.
 - Choose public, unlisted, or private access for each memorial.
 - Create separate invitation links for private family and friend groups.
@@ -53,6 +55,40 @@ For an internet-facing installation, set a strong `LONGHOME_WRITE_TOKEN` in `.en
 LongHome behind HTTPS, set `LONGHOME_PUBLIC_URL` to the external origin, and back up
 `./data` regularly.
 
+## Optional AI story co-writer
+
+LongHome can help a family shape its own rough notes into a story draft. The feature is
+off by default and supports one operator-selected hosted provider: `openai`, `anthropic`,
+or `gemini`.
+
+Add the following to `.env`:
+
+```dotenv
+LONGHOME_AI_PROVIDER=openai
+LONGHOME_AI_API_KEY=your-provider-api-key
+LONGHOME_AI_MODEL=your-provider-model-id
+LONGHOME_AI_TIMEOUT_MS=60000
+```
+
+Use a model identifier currently available to your provider account. Restart LongHome,
+then open the creation form. The assistant appears beneath the story field.
+
+Provider setup: [OpenAI API](https://developers.openai.com/api/docs/quickstart),
+[Claude API](https://platform.claude.com/docs/en/api/overview), or
+[Gemini API](https://ai.google.dev/gemini-api/docs/api-key). LongHome calls each provider's
+native text API directly and does not install a provider SDK.
+
+The family must explicitly consent before every request. LongHome sends only the name,
+optional dates, current story notes, and requested tone and length. It never sends photos
+or videos. A generated draft is previewed and cannot be saved until the family accepts it
+and submits the ordinary memorial form.
+
+LongHome does not store prompts or discarded drafts. It requests non-storage when the
+provider API supports that setting, but the operator remains responsible for reviewing
+the selected provider's current data-handling policy. Configure `LONGHOME_WRITE_TOKEN` on
+internet-facing installations; the same token protects paid AI requests from anonymous
+use.
+
 ## Run locally
 
 LongHome requires Node.js 22 or newer.
@@ -75,6 +111,10 @@ npm run build
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `LONGHOME_DATA_DIR` | `./data` | SQLite database and uploaded media |
+| `LONGHOME_AI_PROVIDER` | unset | Optional `openai`, `anthropic`, or `gemini` story provider |
+| `LONGHOME_AI_API_KEY` | unset | Server-side API credential for the selected provider |
+| `LONGHOME_AI_MODEL` | unset | Provider model identifier used for story drafts |
+| `LONGHOME_AI_TIMEOUT_MS` | `60000` | Maximum duration of one provider request |
 | `LONGHOME_HTTP_PORT` | `3000` | Host port used by Docker Compose |
 | `LONGHOME_HOST` | `0.0.0.0` | Listening address |
 | `LONGHOME_PORT` | `3000` | HTTP port |
@@ -95,6 +135,10 @@ Invitation and steward links are bearer capabilities: possession grants access. 
 them through a trusted channel. The steward link can create or revoke invitations and
 change visibility, so keep it separate from visitor invitations. LongHome stores only
 token hashes and cannot reveal an existing link again.
+
+AI assistance is writing help, not a source of biographical truth. Families should verify
+every generated name, date, quotation, and event. LongHome does not generate a chatbot,
+voice, avatar, or simulation of the deceased.
 
 ## Contributing and security
 

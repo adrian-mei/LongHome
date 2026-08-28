@@ -33,6 +33,16 @@
         </form>
       </section>
 
+      <% if (memorial.storyAiAssisted) { %>
+        <section class="manage-section">
+          <h2>Story provenance</h2>
+          <p>
+            The published story began as an AI-assisted draft and was reviewed by the family
+            before publication. This note is visible only to the steward.
+          </p>
+        </section>
+      <% } %>
+
       <section class="manage-section">
         <h2>Create an invitation</h2>
         <p>Use a person or group name you will recognize if access must be revoked later.</p>

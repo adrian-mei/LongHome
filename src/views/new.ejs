@@ -6,6 +6,7 @@
     <meta name="description" content="Create a family-stewarded memorial in LongHome." />
     <title>Create a memorial · LongHome</title>
     <link rel="stylesheet" href="/assets/styles.css" />
+    <% if (aiEnabled) { %><script src="/assets/assist.js" defer></script><% } %>
   </head>
   <body>
     <header class="site-header shell">
@@ -24,7 +25,7 @@
         <div class="error" role="alert"><%= error %></div>
       <% } %>
 
-      <form action="/memorials" method="post" enctype="multipart/form-data" class="memorial-form">
+      <form id="memorial-form" action="/memorials" method="post" enctype="multipart/form-data" class="memorial-form">
         <% if (requiresWriteToken) { %>
           <label>
             <span>Publishing token</span>
@@ -51,8 +52,69 @@
 
         <label>
           <span>Their story <em>optional</em></span>
-          <textarea name="story" rows="8" maxlength="20000" placeholder="Write as much or as little as you want."><%= values.story %></textarea>
+          <textarea id="story" name="story" rows="8" maxlength="20000" placeholder="Write as much or as little as you want."><%= values.story %></textarea>
         </label>
+        <input id="story-ai-assisted" type="hidden" name="storyAiAssisted" value="<%= values.storyAiAssisted %>" />
+
+        <% if (aiEnabled) { %>
+          <section class="ai-assist" aria-labelledby="ai-assist-title" data-provider="<%= aiProvider %>">
+            <p class="eyebrow">Optional writing help</p>
+            <h2 id="ai-assist-title">Shape your notes with <%= aiProvider %></h2>
+            <p>
+              Start with memories and facts in the story box. The assistant can shape them
+              into a draft, but you decide every word that is published.
+            </p>
+            <div class="ai-controls">
+              <label>
+                <span>Tone</span>
+                <select id="ai-tone">
+                  <option value="warm">Warm and reflective</option>
+                  <option value="factual">Simple and factual</option>
+                  <option value="celebratory">Celebratory</option>
+                </select>
+              </label>
+              <label>
+                <span>Length</span>
+                <select id="ai-length">
+                  <option value="short">Short</option>
+                  <option value="medium" selected>Medium</option>
+                  <option value="long">Long</option>
+                </select>
+              </label>
+            </div>
+            <button id="ai-assist-button" class="button-secondary" type="button">
+              Help me shape this story
+            </button>
+            <p id="ai-status" class="ai-status" role="status" aria-live="polite"></p>
+
+            <section id="ai-preview" class="ai-preview" hidden aria-labelledby="ai-preview-title">
+              <h3 id="ai-preview-title">Review the suggested draft</h3>
+              <div id="ai-preview-text" class="ai-preview-text"></div>
+              <div class="ai-preview-actions">
+                <button id="ai-use-draft" class="button button-small" type="button">Use this draft</button>
+                <button id="ai-keep-mine" class="button-secondary" type="button">Keep my version</button>
+              </div>
+              <small>Check every name, date, and detail before publishing.</small>
+            </section>
+
+            <dialog id="ai-consent" class="ai-consent">
+              <form method="dialog">
+                <p class="eyebrow">Before anything is sent</p>
+                <h2>Share these notes with <%= aiProvider %>?</h2>
+                <p>
+                  LongHome will send the name, dates, and current story text to the configured
+                  AI provider. Photos and videos are never sent. LongHome does not store this
+                  request, but the provider may handle it under its own data policy.
+                </p>
+                <div class="ai-preview-actions">
+                  <button class="button-secondary" value="cancel">Keep it private</button>
+                  <button class="button button-small" value="confirm">Send and create draft</button>
+                </div>
+              </form>
+            </dialog>
+            <noscript><p class="ai-status">AI writing help requires JavaScript. The regular memorial form still works.</p></noscript>
+          </section>
+        <% } %>
 
         <fieldset class="visibility-fieldset">
           <legend>Who can visit?</legend>

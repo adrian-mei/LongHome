@@ -84,6 +84,9 @@ change is necessary.
   together whenever the access layer changes.
 - Never log, fixture, or commit raw invitation and steward capabilities.
 - Preserve the person; do not impersonate them. AI simulations are outside scope.
+- Keep AI assistance optional, consent-gated, text-only, and provider-key agnostic. Tests
+  must prove authorization happens before any paid provider call and that failures do not
+  erase family-written notes.
 - Avoid claims that one server or company can guarantee literal permanence.
 
 ## Reporting security problems

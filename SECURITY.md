@@ -31,6 +31,8 @@ LongHome does not terminate TLS or manage host security. Operators should:
 
 - put public installations behind HTTPS;
 - set a strong `LONGHOME_WRITE_TOKEN`;
+- keep `LONGHOME_AI_API_KEY` only in server environment configuration and rotate it if it
+  is ever exposed;
 - set `LONGHOME_PUBLIC_URL` to the HTTPS origin before creating share links;
 - treat invitation links as private credentials and steward links as administrative
   credentials;
@@ -38,6 +40,12 @@ LongHome does not terminate TLS or manage host security. Operators should:
 - restrict filesystem access to the LongHome data directory;
 - keep the container or Node.js runtime updated; and
 - maintain tested backups of both the SQLite database and media directory.
+
+When AI assistance is enabled, the selected provider receives the text shown in the
+per-request consent dialog. LongHome does not log or persist prompts and discarded drafts,
+but cannot control provider-side retention. Operators must review the provider's current
+data policy and billing limits. The publishing token also gates AI requests when configured;
+do not expose a paid provider on a public installation without that protection.
 
 LongHome stores capability tokens as SHA-256 hashes. The raw invitation or steward link is
 shown only when created and cannot be recovered from the database later. A private visitor
