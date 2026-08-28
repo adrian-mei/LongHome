@@ -150,6 +150,7 @@ img, video { display: block; max-width: 100%; }
 .visibility-option strong { color: var(--ink); display: block; font-size: 0.9rem; letter-spacing: 0; text-transform: none; }
 
 .ai-assist { background: var(--paper-deep); border: 1px solid var(--line); padding: 28px; }
+.ai-assist-disabled { background: transparent; border-style: dashed; }
 .ai-assist h2, .ai-consent h2 { font-size: 1.8rem; font-weight: 400; margin: 10px 0 14px; }
 .ai-assist > p:not(.eyebrow), .ai-consent p { color: var(--muted); line-height: 1.6; }
 .ai-controls { display: grid; gap: 14px; grid-template-columns: 1fr 1fr; margin: 24px 0 18px; }

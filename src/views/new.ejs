@@ -102,9 +102,10 @@
                 <p class="eyebrow">Before anything is sent</p>
                 <h2>Share these notes with <%= aiProvider %>?</h2>
                 <p>
-                  LongHome will send the name, dates, and current story text to the configured
-                  AI provider. Photos and videos are never sent. LongHome does not store this
-                  request, but the provider may handle it under its own data policy.
+                  LongHome will send the name, dates, and current story text
+                  <% if (aiLocal) { %>through the signed-in local CLI<% } else { %>to the configured AI provider<% } %>.
+                  Photos and videos are never sent. LongHome does not store this request,
+                  but the provider may handle it under its own data policy.
                 </p>
                 <div class="ai-preview-actions">
                   <button class="button-secondary" value="cancel">Keep it private</button>
@@ -113,6 +114,15 @@
               </form>
             </dialog>
             <noscript><p class="ai-status">AI writing help requires JavaScript. The regular memorial form still works.</p></noscript>
+          </section>
+        <% } else { %>
+          <section class="ai-assist ai-assist-disabled" aria-labelledby="ai-assist-disabled-title">
+            <p class="eyebrow">Optional writing help</p>
+            <h2 id="ai-assist-disabled-title">AI story help is not connected</h2>
+            <p>
+              This LongHome still works without AI. A self-hoster can optionally connect
+              OpenAI, Claude, Gemini, Claude Code, or Codex for family-reviewed story drafts.
+            </p>
           </section>
         <% } %>
 

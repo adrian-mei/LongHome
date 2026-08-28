@@ -27,9 +27,10 @@ LongHome creates links but does not send email.
 
 ## Optional AI assistance
 
-A self-hoster may connect one hosted text provider—OpenAI, Anthropic Claude, or Google
-Gemini—to help a family shape its own notes into a memorial-story draft during creation.
-The feature is disabled by default and the rest of LongHome never depends on it.
+A self-hoster may connect OpenAI, Anthropic Claude, or Google Gemini—or reuse a signed-in
+Claude Code or Codex CLI on the same machine—to help a family shape its own notes into a
+memorial-story draft during creation. The feature is disabled by default and the rest of
+LongHome never depends on it.
 
 Each request requires explicit family consent. Only the entered name, dates, and story
 text are sent; photographs and videos remain inside LongHome. Generated text is always a

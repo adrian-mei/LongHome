@@ -110,6 +110,7 @@ describe("LongHome", () => {
     const app = await testApp();
     const form = await app.inject({ method: "GET", url: "/new" });
     expect(form.body).not.toContain("Help me shape this story");
+    expect(form.body).toContain("AI story help is not connected");
     const response = await app.inject({
       method: "POST",
       payload: { length: "short", name: "Test", story: "Some notes", tone: "warm" },

@@ -87,6 +87,9 @@ change is necessary.
 - Keep AI assistance optional, consent-gated, text-only, and provider-key agnostic. Tests
   must prove authorization happens before any paid provider call and that failures do not
   erase family-written notes.
+- Local CLI integrations must use fixed argument arrays with `shell: false`, transmit
+  private text over stdin, isolate the working directory, cap output and duration, and avoid
+  persistent agent sessions.
 - Avoid claims that one server or company can guarantee literal permanence.
 
 ## Reporting security problems

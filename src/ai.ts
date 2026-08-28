@@ -1,4 +1,8 @@
 import type { LongHomeAiConfig } from "./config.js";
+import { spawn } from "node:child_process";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 export type StoryLength = "long" | "medium" | "short";
 export type StoryTone = "celebratory" | "factual" | "warm";
@@ -13,6 +17,12 @@ export interface StoryDraftInput {
 }
 
 type Fetcher = typeof fetch;
+type CommandRunner = (
+  command: string,
+  args: string[],
+  input: string,
+  timeoutMs: number,
+) => Promise<string>;
 
 const systemPrompt = `You help a family shape their own notes into a memorial story.
 Use only facts present in the supplied source material. Omit uncertain details rather than guessing.
@@ -123,7 +133,7 @@ function providerRequest(
         model: config.model,
         store: false,
       },
-      headers: { Authorization: `Bearer ${config.apiKey}` },
+      headers: { Authorization: `Bearer ${config.apiKey!}` },
       parse: openAiText,
       url: "https://api.openai.com/v1/responses",
     };
@@ -133,12 +143,12 @@ function providerRequest(
       body: {
         max_tokens: 900,
         messages: [{ content: prompt, role: "user" }],
-        model: config.model,
+        model: config.model!,
         system: systemPrompt,
       },
       headers: {
         "anthropic-version": "2023-06-01",
-        "x-api-key": config.apiKey,
+        "x-api-key": config.apiKey!,
       },
       parse: anthropicText,
       url: "https://api.anthropic.com/v1/messages",
@@ -148,23 +158,145 @@ function providerRequest(
     body: {
       generation_config: { max_output_tokens: 900 },
       input: prompt,
-      model: config.model,
+      model: config.model!,
       store: false,
       system_instruction: systemPrompt,
     },
-    headers: { "x-goog-api-key": config.apiKey },
+    headers: { "x-goog-api-key": config.apiKey! },
     parse: geminiText,
     url: "https://generativelanguage.googleapis.com/v1beta/interactions",
   };
+}
+
+async function runCliCommand(
+  command: string,
+  args: string[],
+  input: string,
+  timeoutMs: number,
+): Promise<string> {
+  const workingDir = await mkdtemp(join(tmpdir(), "longhome-ai-"));
+  try {
+    return await new Promise<string>((resolve, reject) => {
+      const child = spawn(command, args, {
+        cwd: workingDir,
+        env: { ...process.env, NO_COLOR: "1" },
+        shell: false,
+        stdio: ["pipe", "pipe", "pipe"],
+      });
+      let output = "";
+      let outputBytes = 0;
+      let settled = false;
+      const finish = (error: Error | null, value = "") => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        if (error) reject(error);
+        else resolve(value);
+      };
+      const timer = setTimeout(() => {
+        child.kill("SIGKILL");
+        finish(new StoryAssistantError());
+      }, timeoutMs);
+
+      child.on("error", () => finish(new StoryAssistantError()));
+      child.stdout.on("data", (chunk: Buffer) => {
+        outputBytes += chunk.length;
+        if (outputBytes > 100_000) {
+          child.kill("SIGKILL");
+          finish(new StoryAssistantError());
+          return;
+        }
+        output += chunk.toString("utf8");
+      });
+      child.stderr.on("data", (chunk: Buffer) => {
+        outputBytes += chunk.length;
+        if (outputBytes > 100_000) {
+          child.kill("SIGKILL");
+          finish(new StoryAssistantError());
+        }
+      });
+      child.on("close", (code) => {
+        if (code !== 0) finish(new StoryAssistantError());
+        else finish(null, output.trim());
+      });
+      child.stdin.on("error", () => undefined);
+      child.stdin.end(input);
+    });
+  } finally {
+    await rm(workingDir, { force: true, recursive: true });
+  }
+}
+
+function claudeCliDraft(raw: string): string {
+  const result = asObject(JSON.parse(raw));
+  return typeof result?.result === "string" ? result.result : "";
+}
+
+async function localCliDraft(
+  config: LongHomeAiConfig,
+  input: StoryDraftInput,
+  commandRunner: CommandRunner,
+): Promise<string> {
+  const prompt = userPrompt(input);
+  if (config.provider === "claude-cli") {
+    const args = [
+      "-p",
+      "--output-format",
+      "json",
+      "--no-session-persistence",
+      "--safe-mode",
+      "--no-chrome",
+      "--tools",
+      "",
+      "--strict-mcp-config",
+      "--mcp-config",
+      '{"mcpServers":{}}',
+      "--max-turns",
+      "1",
+      "--system-prompt",
+      systemPrompt,
+    ];
+    if (config.model) args.push("--model", config.model);
+    return claudeCliDraft(
+      await commandRunner("claude", args, prompt, config.timeoutMs),
+    );
+  }
+
+  const args = [
+    "exec",
+    "--ephemeral",
+    "--sandbox",
+    "read-only",
+    "--skip-git-repo-check",
+    "--ignore-user-config",
+    "--ignore-rules",
+    "--color",
+    "never",
+  ];
+  if (config.model) args.push("--model", config.model);
+  args.push("-");
+  return commandRunner(
+    "codex",
+    args,
+    `${systemPrompt}\n\n${prompt}`,
+    config.timeoutMs,
+  );
 }
 
 export async function draftMemorialStory(
   config: LongHomeAiConfig,
   input: StoryDraftInput,
   fetcher: Fetcher = fetch,
+  commandRunner: CommandRunner = runCliCommand,
 ): Promise<string> {
-  const request = providerRequest(config, input);
   try {
+    if (config.provider === "claude-cli" || config.provider === "codex-cli") {
+      const draft = (await localCliDraft(config, input, commandRunner)).trim();
+      if (!draft || draft.length > 20_000) throw new StoryAssistantError();
+      return draft;
+    }
+
+    const request = providerRequest(config, input);
     const response = await fetcher(request.url, {
       body: JSON.stringify(request.body),
       headers: { "content-type": "application/json", ...request.headers },
@@ -184,6 +316,8 @@ export async function draftMemorialStory(
 }
 
 export function aiProviderLabel(config: LongHomeAiConfig): string {
+  if (config.provider === "claude-cli") return "Claude Code on this computer";
+  if (config.provider === "codex-cli") return "Codex on this computer";
   if (config.provider === "anthropic") return "Claude";
   if (config.provider === "gemini") return "Gemini";
   return "OpenAI";

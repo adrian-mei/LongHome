@@ -47,6 +47,13 @@ but cannot control provider-side retention. Operators must review the provider's
 data policy and billing limits. The publishing token also gates AI requests when configured;
 do not expose a paid provider on a public installation without that protection.
 
+Local CLI mode reuses the CLI account authenticated on the LongHome host. Run it only under
+a dedicated, trusted OS user. LongHome invokes fixed `claude` or `codex` executables without
+a shell, passes memorial text over standard input, uses an empty temporary working directory,
+and disables tools or write access as far as each CLI supports. Do not mount a personal CLI
+credential directory into the LongHome Docker container; use native Node.js execution or a
+separately secured bridge instead.
+
 LongHome stores capability tokens as SHA-256 hashes. The raw invitation or steward link is
 shown only when created and cannot be recovered from the database later. A private visitor
 receives a 30-day HTTP-only, same-site cookie; every page and media request revalidates the

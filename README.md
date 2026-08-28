@@ -58,8 +58,8 @@ LongHome behind HTTPS, set `LONGHOME_PUBLIC_URL` to the external origin, and bac
 ## Optional AI story co-writer
 
 LongHome can help a family shape its own rough notes into a story draft. The feature is
-off by default and supports one operator-selected hosted provider: `openai`, `anthropic`,
-or `gemini`.
+off by default and supports one operator-selected hosted provider (`openai`, `anthropic`,
+or `gemini`) or a signed-in local coding-agent CLI (`claude-cli` or `codex-cli`).
 
 Add the following to `.env`:
 
@@ -89,6 +89,34 @@ the selected provider's current data-handling policy. Configure `LONGHOME_WRITE_
 internet-facing installations; the same token protects paid AI requests from anonymous
 use.
 
+### Use a signed-in Claude Code or Codex CLI
+
+If LongHome runs directly with Node.js on the same computer as an authenticated CLI, no
+separate API key is needed:
+
+```dotenv
+LONGHOME_AI_PROVIDER=codex-cli
+LONGHOME_AI_TIMEOUT_MS=120000
+```
+
+Use `claude-cli` instead to invoke Claude Code. `LONGHOME_AI_MODEL` is optional for either
+CLI; when omitted, the CLI uses its configured default. LongHome passes memorial text over
+standard input so it does not appear in the process list. Codex runs ephemerally in a
+read-only empty workspace. Claude Code runs without tools, MCP servers, Chrome integration,
+or session persistence.
+
+CLI mode requires a native Node.js LongHome process because a Docker container cannot
+execute macOS or Windows host binaries or safely inherit their login session. Install and
+sign in to the desired CLI, then run:
+
+```bash
+npm run build
+LONGHOME_AI_PROVIDER=codex-cli npm start
+```
+
+Docker self-hosters should use one of the hosted API providers unless they deliberately
+operate a separate, secured inference bridge.
+
 ## Run locally
 
 LongHome requires Node.js 22 or newer.
@@ -111,9 +139,9 @@ npm run build
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `LONGHOME_DATA_DIR` | `./data` | SQLite database and uploaded media |
-| `LONGHOME_AI_PROVIDER` | unset | Optional `openai`, `anthropic`, or `gemini` story provider |
-| `LONGHOME_AI_API_KEY` | unset | Server-side API credential for the selected provider |
-| `LONGHOME_AI_MODEL` | unset | Provider model identifier used for story drafts |
+| `LONGHOME_AI_PROVIDER` | unset | Hosted provider or `claude-cli` / `codex-cli` |
+| `LONGHOME_AI_API_KEY` | unset | Required only for a hosted provider |
+| `LONGHOME_AI_MODEL` | unset | Required for hosted APIs; optional CLI override |
 | `LONGHOME_AI_TIMEOUT_MS` | `60000` | Maximum duration of one provider request |
 | `LONGHOME_HTTP_PORT` | `3000` | Host port used by Docker Compose |
 | `LONGHOME_HOST` | `0.0.0.0` | Listening address |

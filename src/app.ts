@@ -293,6 +293,7 @@ export async function createApp(
   app.get("/new", async (_request, reply) => {
     return reply.view("new.ejs", {
       aiEnabled: Boolean(config.ai),
+      aiLocal: config.ai?.provider.endsWith("-cli") || false,
       aiProvider: config.ai ? aiProviderLabel(config.ai) : null,
       error: null,
       maxPhotoMb: bytesToLabel(config.maxPhotoBytes),
@@ -394,6 +395,7 @@ export async function createApp(
         await rm(memorialMediaDir, { force: true, recursive: true });
         return reply.code(400).view("new.ejs", {
           aiEnabled: Boolean(config.ai),
+          aiLocal: config.ai?.provider.endsWith("-cli") || false,
           aiProvider: config.ai ? aiProviderLabel(config.ai) : null,
           error: message,
           maxPhotoMb: bytesToLabel(config.maxPhotoBytes),

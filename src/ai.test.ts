@@ -12,9 +12,10 @@ const input = {
 };
 
 function config(provider: AiProvider): LongHomeAiConfig {
+  const local = provider === "claude-cli" || provider === "codex-cli";
   return {
-    apiKey: "provider-secret",
-    model: "test-model",
+    apiKey: local ? null : "provider-secret",
+    model: local ? null : "test-model",
     provider,
     timeoutMs: 1_000,
   };
@@ -110,5 +111,66 @@ describe("memorial story providers", () => {
     await expect(
       draftMemorialStory(config("openai"), input, fetcher),
     ).rejects.toEqual(new StoryAssistantError());
+  });
+
+  it("runs Codex ephemerally in a read-only empty workspace", async () => {
+    const runner = vi.fn(
+      async (
+        _command: string,
+        _args: string[],
+        _prompt: string,
+        _timeoutMs: number,
+      ) => "Codex CLI draft",
+    );
+    await expect(
+      draftMemorialStory(config("codex-cli"), input, fetch, runner),
+    ).resolves.toBe("Codex CLI draft");
+
+    const [command, args, prompt, timeoutMs] = runner.mock.calls[0]!;
+    expect(command).toBe("codex");
+    expect(args).toEqual(
+      expect.arrayContaining([
+        "exec",
+        "--ephemeral",
+        "--sandbox",
+        "read-only",
+        "--ignore-user-config",
+        "--ignore-rules",
+        "-",
+      ]),
+    );
+    expect(args.join(" ")).not.toContain("grew roses");
+    expect(prompt).toContain("grew roses");
+    expect(timeoutMs).toBe(1_000);
+  });
+
+  it("runs Claude Code without tools or session persistence", async () => {
+    const runner = vi.fn(
+      async (
+        _command: string,
+        _args: string[],
+        _prompt: string,
+        _timeoutMs: number,
+      ) => JSON.stringify({ result: "Claude Code draft", type: "result" }),
+    );
+    await expect(
+      draftMemorialStory(config("claude-cli"), input, fetch, runner),
+    ).resolves.toBe("Claude Code draft");
+
+    const [command, args, prompt] = runner.mock.calls[0]!;
+    expect(command).toBe("claude");
+    expect(args).toEqual(
+      expect.arrayContaining([
+        "-p",
+        "--no-session-persistence",
+        "--safe-mode",
+        "--no-chrome",
+        "--tools",
+        "",
+        "--strict-mcp-config",
+      ]),
+    );
+    expect(args.join(" ")).not.toContain("grew roses");
+    expect(prompt).toContain("grew roses");
   });
 });

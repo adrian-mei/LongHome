@@ -1,10 +1,15 @@
 import { resolve } from "node:path";
 
-export type AiProvider = "anthropic" | "gemini" | "openai";
+export type AiProvider =
+  | "anthropic"
+  | "claude-cli"
+  | "codex-cli"
+  | "gemini"
+  | "openai";
 
 export interface LongHomeAiConfig {
-  apiKey: string;
-  model: string;
+  apiKey: string | null;
+  model: string | null;
   provider: AiProvider;
   timeoutMs: number;
 }
@@ -32,14 +37,27 @@ function positiveInteger(value: string | undefined, fallback: number): number {
 function aiConfig(): LongHomeAiConfig | null {
   const rawProvider = process.env.LONGHOME_AI_PROVIDER?.trim().toLowerCase();
   if (!rawProvider) return null;
-  if (!["anthropic", "gemini", "openai"].includes(rawProvider)) {
+  if (
+    !["anthropic", "claude-cli", "codex-cli", "gemini", "openai"].includes(
+      rawProvider,
+    )
+  ) {
     throw new Error(
-      "LONGHOME_AI_PROVIDER must be openai, anthropic, or gemini.",
+      "LONGHOME_AI_PROVIDER must be openai, anthropic, gemini, claude-cli, or codex-cli.",
     );
   }
 
-  const apiKey = process.env.LONGHOME_AI_API_KEY?.trim();
-  const model = process.env.LONGHOME_AI_MODEL?.trim();
+  const provider = rawProvider as AiProvider;
+  const apiKey = process.env.LONGHOME_AI_API_KEY?.trim() || null;
+  const model = process.env.LONGHOME_AI_MODEL?.trim() || null;
+  if (provider === "claude-cli" || provider === "codex-cli") {
+    return {
+      apiKey: null,
+      model,
+      provider,
+      timeoutMs: positiveInteger(process.env.LONGHOME_AI_TIMEOUT_MS, 120_000),
+    };
+  }
   if (!apiKey || !model) {
     throw new Error(
       "LONGHOME_AI_API_KEY and LONGHOME_AI_MODEL are required when AI assistance is enabled.",
@@ -49,7 +67,7 @@ function aiConfig(): LongHomeAiConfig | null {
   return {
     apiKey,
     model,
-    provider: rawProvider as AiProvider,
+    provider,
     timeoutMs: positiveInteger(process.env.LONGHOME_AI_TIMEOUT_MS, 60_000),
   };
 }

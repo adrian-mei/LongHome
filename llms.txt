@@ -14,7 +14,7 @@ is self-hosted only; managed hosting is explicitly deferred.
 - `SECURITY.md`: private vulnerability reporting policy
 - `src/app.ts`: HTTP routes, upload validation, and rendered page composition
 - `src/access.ts`: capability token, hashing, URL, and cookie-name helpers
-- `src/ai.ts`: hosted-provider adapters and memorial-story drafting guardrails
+- `src/ai.ts`: hosted API and sandboxed local CLI adapters plus drafting guardrails
 - `src/store.ts`: SQLite schema and persistence boundary
 - `src/views/`: server-rendered EJS pages
 - `src/public/styles.css`: visual system
@@ -50,6 +50,8 @@ Node.js 22 or newer is required. Runtime data lives under `LONGHOME_DATA_DIR` (d
 - Families preserve a person; the software must not impersonate one.
 - Optional AI may shape family-supplied text only after per-request consent and must never
   receive memorial media, invent facts, auto-publish, or expose provider credentials.
+- Local CLI prompts must travel over stdin, run without a shell from an empty temporary
+  directory, and use the strongest available no-tools/read-only and ephemeral settings.
 - Never add AI simulation of a deceased person without a new, explicit project decision.
 - Never use real private memorial data in fixtures, examples, screenshots, or tests.
 
