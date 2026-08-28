@@ -1,0 +1,36 @@
+name: Feature request
+description: Propose a focused improvement to the self-hosted product
+title: "feat: "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What family or self-hosting need is currently unmet?
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: Describe the result without prescribing an implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: checkboxes
+    id: boundary
+    attributes:
+      label: Product boundary
+      options:
+        - label: This keeps LongHome self-hostable and portable.
+          required: true
+        - label: This does not require Cogito or a managed LongHome service.
+          required: true
+        - label: This does not simulate or impersonate a deceased person.
+          required: true
+        - label: I searched existing issues.
+          required: true

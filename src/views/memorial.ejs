@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="In memory of <%= memorial.name %>." />
+    <title><%= memorial.name %> · LongHome</title>
+    <link rel="stylesheet" href="/assets/styles.css" />
+  </head>
+  <body class="memorial-page">
+    <header class="site-header shell">
+      <a class="wordmark" href="/">LongHome</a>
+      <span class="quiet-mark" aria-hidden="true">✦</span>
+    </header>
+
+    <main class="memorial-shell shell">
+      <header class="memorial-title">
+        <p class="eyebrow">In memory of</p>
+        <h1><%= memorial.name %></h1>
+        <% if (memorial.birthDate || memorial.deathDate) { %>
+          <p class="life-dates">
+            <%= memorial.birthDate || "" %>
+            <%= memorial.birthDate && memorial.deathDate ? " – " : "" %>
+            <%= memorial.deathDate || "" %>
+          </p>
+        <% } %>
+      </header>
+
+      <section class="photo-gallery" aria-label="Photographs of <%= memorial.name %>">
+        <% memorial.photos.forEach((photo, index) => { %>
+          <figure class="photo photo-<%= index %>">
+            <img src="<%= photo.url %>" alt="Photograph of <%= memorial.name %>" loading="<%= index === 0 ? "eager" : "lazy" %>" />
+          </figure>
+        <% }) %>
+      </section>
+
+      <% if (memorial.story) { %>
+        <section class="story" aria-labelledby="story-title">
+          <p class="eyebrow">Their story</p>
+          <h2 id="story-title">A life remembered</h2>
+          <div class="story-copy"><%= memorial.story %></div>
+        </section>
+      <% } %>
+
+      <% if (memorial.videos.length > 0) { %>
+        <section class="videos" aria-labelledby="videos-title">
+          <p class="eyebrow">In motion</p>
+          <h2 id="videos-title">Recorded memories</h2>
+          <div class="video-grid">
+            <% memorial.videos.forEach((video) => { %>
+              <video controls preload="metadata">
+                <source src="<%= video.url %>" type="<%= video.mimeType %>" />
+                Your browser does not support this video.
+              </video>
+            <% }) %>
+          </div>
+        </section>
+      <% } %>
+    </main>
+
+    <footer class="site-footer shell">
+      <p>Held with care in LongHome.</p>
+    </footer>
+  </body>
+</html>

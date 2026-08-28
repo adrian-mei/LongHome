@@ -1,0 +1,10 @@
+services:
+  longhome:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      LONGHOME_WRITE_TOKEN: ${LONGHOME_WRITE_TOKEN:-}
+    volumes:
+      - ./data:/app/data

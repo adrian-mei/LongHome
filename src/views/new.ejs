@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Create a family-stewarded memorial in LongHome." />
+    <title>Create a memorial · LongHome</title>
+    <link rel="stylesheet" href="/assets/styles.css" />
+  </head>
+  <body>
+    <header class="site-header shell">
+      <a class="wordmark" href="/">LongHome</a>
+      <a class="text-link" href="/">Return home</a>
+    </header>
+
+    <main class="form-shell shell">
+      <div class="form-intro">
+        <p class="eyebrow">Create a memorial</p>
+        <h1>Begin with their name and a photograph.</h1>
+        <p>Everything else can be added only if it feels right.</p>
+      </div>
+
+      <% if (error) { %>
+        <div class="error" role="alert"><%= error %></div>
+      <% } %>
+
+      <form action="/memorials" method="post" enctype="multipart/form-data" class="memorial-form">
+        <% if (requiresWriteToken) { %>
+          <label>
+            <span>Publishing token</span>
+            <input type="password" name="writeToken" required autocomplete="current-password" />
+            <small>Provided by the person who runs this LongHome.</small>
+          </label>
+        <% } %>
+
+        <label>
+          <span>Name <strong>required</strong></span>
+          <input name="name" value="<%= values.name %>" maxlength="120" required autocomplete="name" />
+        </label>
+
+        <div class="date-row">
+          <label>
+            <span>Birth date <em>optional</em></span>
+            <input type="date" name="birthDate" value="<%= values.birthDate %>" />
+          </label>
+          <label>
+            <span>End date <em>optional</em></span>
+            <input type="date" name="deathDate" value="<%= values.deathDate %>" />
+          </label>
+        </div>
+
+        <label>
+          <span>Their story <em>optional</em></span>
+          <textarea name="story" rows="8" maxlength="20000" placeholder="Write as much or as little as you want."><%= values.story %></textarea>
+        </label>
+
+        <label class="upload-field">
+          <span>Photographs <strong>at least one required</strong></span>
+          <input type="file" name="photos" accept="image/jpeg,image/png,image/webp,image/gif" multiple required />
+          <small>Up to 12 images, <%= maxPhotoMb %> each. JPEG, PNG, WebP, or GIF.</small>
+        </label>
+
+        <label class="upload-field">
+          <span>Videos <em>optional</em></span>
+          <input type="file" name="videos" accept="video/mp4,video/webm,video/quicktime" multiple />
+          <small>Up to 4 videos, <%= maxVideoMb %> each. MP4, WebM, or QuickTime.</small>
+        </label>
+
+        <div class="form-actions">
+          <button class="button" type="submit">Publish their LongHome</button>
+          <p>Publishing creates a public page on this server.</p>
+        </div>
+      </form>
+    </main>
+  </body>
+</html>

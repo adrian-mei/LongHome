@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="LongHome preserves a life in one family-stewarded place." />
+    <title>LongHome</title>
+    <link rel="stylesheet" href="/assets/styles.css" />
+  </head>
+  <body>
+    <header class="site-header shell">
+      <a class="wordmark" href="/">LongHome</a>
+      <a class="button button-small" href="/new">Create a memorial</a>
+    </header>
+
+    <main>
+      <section class="hero shell">
+        <p class="eyebrow">A permanent place for a life</p>
+        <h1>One person.<br />One lasting home.</h1>
+        <p class="hero-copy">
+          Preserve their name, photographs, voice, and story in a quiet place
+          held by the people who knew them.
+        </p>
+        <a class="button" href="/new">Create a memorial</a>
+      </section>
+
+      <section class="memorial-section shell" aria-labelledby="memorials-title">
+        <div class="section-heading">
+          <p class="eyebrow">Remembered here</p>
+          <h2 id="memorials-title">Lives in this LongHome</h2>
+        </div>
+
+        <% if (memorials.length === 0) { %>
+          <div class="empty-state">
+            <p>No memorials have been added yet.</p>
+            <a href="/new">Create the first one</a>
+          </div>
+        <% } else { %>
+          <div class="memorial-grid">
+            <% memorials.forEach((memorial) => { %>
+              <a class="memorial-card" href="/m/<%= memorial.slug %>">
+                <% if (memorial.coverUrl) { %>
+                  <img src="<%= memorial.coverUrl %>" alt="" loading="lazy" />
+                <% } %>
+                <div class="memorial-card-copy">
+                  <h3><%= memorial.name %></h3>
+                  <% if (memorial.birthDate || memorial.deathDate) { %>
+                    <p>
+                      <%= memorial.birthDate || "" %>
+                      <%= memorial.birthDate && memorial.deathDate ? " – " : "" %>
+                      <%= memorial.deathDate || "" %>
+                    </p>
+                  <% } %>
+                </div>
+              </a>
+            <% }) %>
+          </div>
+        <% } %>
+      </section>
+    </main>
+
+    <footer class="site-footer shell">
+      <p>LongHome is open-source software. Your family keeps the data.</p>
+    </footer>
+  </body>
+</html>

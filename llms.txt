@@ -1,0 +1,51 @@
+# LongHome
+
+> Open-source, self-hosted software for permanent, family-stewarded memorial pages.
+
+LongHome gives one person one lasting page. A memorial requires a name and at least one
+photo. Birth and end dates, a written story, and videos are optional. The current product
+is self-hosted only; managed hosting is explicitly deferred.
+
+## Repository map
+
+- `README.md`: user-facing overview and self-hosting instructions
+- `docs/PRODUCT.md`: product boundary and ethical guardrails
+- `CONTRIBUTING.md`: development workflow and commit rules
+- `SECURITY.md`: private vulnerability reporting policy
+- `src/app.ts`: HTTP routes, upload validation, and rendered page composition
+- `src/store.ts`: SQLite schema and persistence boundary
+- `src/views/`: server-rendered EJS pages
+- `src/public/styles.css`: visual system
+- `src/app.test.ts`: HTTP-level behavior tests
+- `Dockerfile` and `docker-compose.yml`: self-hosting path
+
+## Commands
+
+```bash
+npm install
+npm run dev
+npm test
+npm run typecheck
+npm run build
+docker compose up --build
+```
+
+Node.js 22 or newer is required. Runtime data lives under `LONGHOME_DATA_DIR` (default
+`./data`) and consists of `longhome.sqlite` plus `media/`. Preserve both together.
+
+## Non-negotiable boundaries
+
+- LongHome is founder-owned and independent from the Cogito product stack.
+- No Cogito, cogitod, proprietary cloud, or managed-service dependency belongs here.
+- Self-hosting and portable data are first-class product behavior.
+- A memorial must have a name and at least one photo; every other biographical field is
+  optional.
+- Families preserve a person; the software must not impersonate one.
+- Never add AI simulation of a deceased person without a new, explicit project decision.
+- Never use real private memorial data in fixtures, examples, screenshots, or tests.
+
+## Change expectations
+
+Use Conventional Commits. Keep pull requests narrow. Behavior changes need tests. Public
+contract changes need matching updates to README or product docs. Schema changes must
+preserve existing installations and include a migration path.
