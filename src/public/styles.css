@@ -142,6 +142,13 @@ img, video { display: block; max-width: 100%; }
 .form-actions { align-items: center; display: flex; gap: 18px; }
 .form-actions p { margin: 0; }
 
+.visibility-fieldset { border: 0; display: grid; gap: 12px; margin: 0; padding: 0; }
+.visibility-fieldset legend { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.9rem; font-weight: 680; margin-bottom: 12px; }
+.visibility-option { align-items: start; background: var(--cream); border: 1px solid var(--line); cursor: pointer; display: grid !important; gap: 14px !important; grid-template-columns: 20px 1fr; padding: 18px; }
+.visibility-option input { margin: 3px 0 0; width: auto; }
+.visibility-option span { color: var(--muted); font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.86rem; line-height: 1.5; }
+.visibility-option strong { color: var(--ink); display: block; font-size: 0.9rem; letter-spacing: 0; text-transform: none; }
+
 .memorial-shell { padding-block: clamp(70px, 12vw, 150px); }
 .memorial-title { margin: 0 auto clamp(60px, 10vw, 120px); max-width: 900px; text-align: center; }
 .memorial-title h1 { font-size: clamp(3.8rem, 11vw, 9rem); font-weight: 400; letter-spacing: -0.065em; line-height: 0.94; margin: 20px 0 28px; }
@@ -159,6 +166,30 @@ img, video { display: block; max-width: 100%; }
 .not-found { padding-block: 120px; }
 .not-found h1 { font-size: clamp(3rem, 8vw, 6rem); }
 
+.access-shell, .manage-shell { max-width: 880px; padding-block: 80px 120px; }
+.access-shell > h1, .manage-shell > h1 { font-size: clamp(3rem, 8vw, 6rem); font-weight: 400; letter-spacing: -0.06em; line-height: 0.95; margin: 18px 0 28px; }
+.access-lead { color: var(--muted); font-size: 1.15rem; line-height: 1.65; max-width: 720px; }
+.link-panel, .manage-section { border-top: 1px solid var(--line); margin-top: 48px; padding-top: 32px; }
+.link-panel h2, .manage-section h2 { font-size: 1.8rem; font-weight: 400; margin: 8px 0 14px; }
+.link-panel p, .manage-section p, .manage-note { color: var(--muted); line-height: 1.6; }
+.link-panel-important { background: var(--paper-deep); border: 1px solid var(--line); padding: 28px; }
+.break-link { color: var(--moss); display: block; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 0.8rem; overflow-wrap: anywhere; padding-block: 8px; }
+.invite-links { display: grid; gap: 18px; margin-top: 24px; }
+.invite-links > div { background: var(--cream); border: 1px solid var(--line); padding: 18px; }
+.access-actions { align-items: center; display: flex; gap: 24px; margin-top: 48px; }
+.inline-form { align-items: end; display: flex; gap: 12px; }
+.inline-form label { flex: 1; }
+.inline-form input, .inline-form select { background: var(--cream); border: 1px solid var(--line); color: var(--ink); font: inherit; min-height: 44px; padding: 10px 12px; width: 100%; }
+.new-invite { background: #e1eadf; border: 1px solid #8fa28d; margin-top: 22px; padding: 18px; }
+.invite-list { border: 1px solid var(--line); }
+.invite-row { align-items: center; background: var(--cream); border-bottom: 1px solid var(--line); display: flex; gap: 20px; justify-content: space-between; padding: 18px; }
+.invite-row:last-child { border-bottom: 0; }
+.invite-row small { color: var(--muted); display: block; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.72rem; margin-top: 6px; }
+.button-secondary { background: transparent; border: 1px solid var(--line); color: var(--ink); cursor: pointer; font-family: ui-sans-serif, system-ui, sans-serif; padding: 9px 13px; }
+.status-pill { color: var(--muted); font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.72rem; text-transform: uppercase; }
+.manage-note { border-top: 1px solid var(--line); font-size: 0.8rem; margin-top: 48px; padding-top: 22px; }
+.sr-only { clip: rect(0, 0, 0, 0); clip-path: inset(50%); height: 1px; overflow: hidden; position: absolute; white-space: nowrap; width: 1px; }
+
 @media (max-width: 760px) {
   .shell { width: min(100% - 28px, 1120px); }
   .memorial-grid { grid-template-columns: 1fr; }
@@ -166,6 +197,7 @@ img, video { display: block; max-width: 100%; }
   .photo:first-child:nth-last-child(odd) { grid-column: auto; }
   .photo:first-child:nth-last-child(odd) img { aspect-ratio: 4 / 3; }
   .form-actions { align-items: flex-start; flex-direction: column; }
+  .access-actions, .inline-form, .invite-row { align-items: stretch; flex-direction: column; }
 }
 
 @media (prefers-reduced-motion: reduce) {

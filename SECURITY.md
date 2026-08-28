@@ -31,6 +31,18 @@ LongHome does not terminate TLS or manage host security. Operators should:
 
 - put public installations behind HTTPS;
 - set a strong `LONGHOME_WRITE_TOKEN`;
+- set `LONGHOME_PUBLIC_URL` to the HTTPS origin before creating share links;
+- treat invitation links as private credentials and steward links as administrative
+  credentials;
+- revoke an invitation immediately if its link reaches the wrong person;
 - restrict filesystem access to the LongHome data directory;
 - keep the container or Node.js runtime updated; and
 - maintain tested backups of both the SQLite database and media directory.
+
+LongHome stores capability tokens as SHA-256 hashes. The raw invitation or steward link is
+shown only when created and cannot be recovered from the database later. A private visitor
+receives a 30-day HTTP-only, same-site cookie; every page and media request revalidates the
+underlying invitation, so revocation takes effect immediately.
+
+Revocation prevents future LongHome requests; it cannot erase a page or file that an
+authorized visitor already saved, photographed, or copied elsewhere.

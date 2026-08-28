@@ -1,20 +1,39 @@
+import cookie from "@fastify/cookie";
+import formbody from "@fastify/formbody";
 import helmet from "@fastify/helmet";
 import multipart from "@fastify/multipart";
 import rateLimit from "@fastify/rate-limit";
 import fastifyStatic from "@fastify/static";
 import fastifyView from "@fastify/view";
 import ejs from "ejs";
-import Fastify, { type FastifyInstance } from "fastify";
-import { createWriteStream } from "node:fs";
+import Fastify, {
+  type FastifyInstance,
+  type FastifyReply,
+  type FastifyRequest,
+} from "fastify";
+import { createReadStream, createWriteStream } from "node:fs";
 import { mkdir, rm } from "node:fs/promises";
 import { timingSafeEqual, randomBytes, randomUUID } from "node:crypto";
-import { dirname, extname, join } from "node:path";
+import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
+import {
+  absoluteUrl,
+  createAccessToken,
+  hashAccessToken,
+  inviteCookieName,
+  stewardCookieName,
+} from "./access.js";
 import { loadConfig, type LongHomeConfig } from "./config.js";
 import { createStore } from "./store.js";
-import type { MediaKind, MemorialMedia } from "./types.js";
+import type {
+  MediaKind,
+  Memorial,
+  MemorialMedia,
+  NewMemorialInvite,
+  Visibility,
+} from "./types.js";
 
 const sourceDir = dirname(fileURLToPath(import.meta.url));
 const photoTypes = new Map([
@@ -28,14 +47,23 @@ const videoTypes = new Map([
   ["video/webm", ".webm"],
   ["video/quicktime", ".mov"],
 ]);
+const visibilityValues = new Set<Visibility>(["public", "unlisted", "private"]);
 
 class UploadError extends Error {}
 
 interface FormValues {
   birthDate: string;
   deathDate: string;
+  invitees: string;
   name: string;
   story: string;
+  visibility: string;
+}
+
+interface CreatedInvite {
+  id: string;
+  label: string;
+  token: string;
 }
 
 function slugify(name: string): string {
@@ -64,12 +92,16 @@ function tokenMatches(actual: string, expected: string): boolean {
   );
 }
 
-function mediaUrl(path: string): string {
-  return `/media/${path.split("/").map(encodeURIComponent).join("/")}`;
+function mediaUrl(mediaId: string): string {
+  return `/media/${encodeURIComponent(mediaId)}`;
 }
 
 function bytesToLabel(bytes: number): string {
   return `${Math.round(bytes / 1024 / 1024)} MB`;
+}
+
+function isVisibility(value: string): value is Visibility {
+  return visibilityValues.has(value as Visibility);
 }
 
 function validateFields(values: FormValues): string | null {
@@ -78,6 +110,7 @@ function validateFields(values: FormValues): string | null {
   if (values.story.length > 20_000) return "Story must be 20,000 characters or less.";
   if (values.birthDate && !isIsoDate(values.birthDate)) return "Birth date is invalid.";
   if (values.deathDate && !isIsoDate(values.deathDate)) return "End date is invalid.";
+  if (!isVisibility(values.visibility)) return "Choose a valid privacy setting.";
   if (
     values.birthDate &&
     values.deathDate &&
@@ -86,6 +119,18 @@ function validateFields(values: FormValues): string | null {
     return "Birth date must be before the end date.";
   }
   return null;
+}
+
+function inviteLabels(value: string): string[] {
+  return [...new Set(value.split(/\r?\n/).map((label) => label.trim()).filter(Boolean))];
+}
+
+function formBody(request: FastifyRequest): Record<string, string> {
+  const body = request.body as Record<string, unknown> | null | undefined;
+  if (!body) return {};
+  return Object.fromEntries(
+    Object.entries(body).map(([key, value]) => [key, String(value ?? "")]),
+  );
 }
 
 async function saveUpload(
@@ -112,7 +157,10 @@ export async function createApp(
 ): Promise<FastifyInstance> {
   const config = loadConfig(overrides);
   const store = createStore(config.dataDir);
-  const app = Fastify({ logger: process.env.NODE_ENV !== "test" });
+  const app = Fastify({
+    logger: process.env.NODE_ENV !== "test",
+    trustProxy: true,
+  });
 
   await app.register(helmet, {
     contentSecurityPolicy: {
@@ -121,13 +169,15 @@ export async function createApp(
       },
     },
   });
+  await app.register(cookie);
+  await app.register(formbody);
   await app.register(rateLimit, { max: 120, timeWindow: "1 minute" });
   await app.register(multipart, {
     limits: {
-      fields: 8,
+      fields: 10,
       fileSize: Math.max(config.maxPhotoBytes, config.maxVideoBytes),
       files: 16,
-      parts: 24,
+      parts: 26,
     },
   });
   await app.register(fastifyView, {
@@ -138,23 +188,81 @@ export async function createApp(
     prefix: "/assets/",
     root: join(sourceDir, "public"),
   });
-  await app.register(fastifyStatic, {
-    decorateReply: false,
-    prefix: "/media/",
-    root: store.mediaDir,
-  });
 
   app.addHook("onClose", async () => store.close());
+
+  const noStore = (reply: FastifyReply) =>
+    reply
+      .header("Cache-Control", "no-store")
+      .header("X-Robots-Tag", "noindex, nofollow");
+
+  const requestBaseUrl = (request: FastifyRequest) =>
+    config.publicUrl ||
+    `${request.protocol}://${request.headers.host || `127.0.0.1:${config.port}`}`;
+
+  const setAccessCookie = (
+    request: FastifyRequest,
+    reply: FastifyReply,
+    name: string,
+    token: string,
+  ) => {
+    reply.setCookie(name, token, {
+      httpOnly: true,
+      maxAge: 60 * 60 * 24 * 30,
+      path: "/",
+      sameSite: "strict",
+      secure: request.protocol === "https",
+    });
+  };
+
+  const hasStewardAccess = (request: FastifyRequest, memorial: Memorial) => {
+    const token = request.cookies[stewardCookieName(memorial.id)];
+    return token
+      ? store.isStewardValid(memorial.id, hashAccessToken(token))
+      : false;
+  };
+
+  const hasMemorialAccess = (request: FastifyRequest, memorial: Memorial) => {
+    if (memorial.visibility !== "private") return true;
+    if (hasStewardAccess(request, memorial)) return true;
+    const token = request.cookies[inviteCookieName(memorial.id)];
+    return token
+      ? store.isInviteValid(memorial.id, hashAccessToken(token))
+      : false;
+  };
+
+  const decorateMemorial = (memorial: Memorial) => ({
+    ...memorial,
+    photos: memorial.media
+      .filter((item) => item.kind === "photo")
+      .map((item) => ({ ...item, url: mediaUrl(item.id) })),
+    videos: memorial.media
+      .filter((item) => item.kind === "video")
+      .map((item) => ({ ...item, url: mediaUrl(item.id) })),
+  });
+
+  const renderManage = (
+    request: FastifyRequest,
+    reply: FastifyReply,
+    memorial: Memorial,
+    newInviteLink: string | null = null,
+  ) => {
+    noStore(reply);
+    return reply.view("manage.ejs", {
+      invites: store.listInvites(memorial.id),
+      memorial,
+      memorialUrl: absoluteUrl(requestBaseUrl(request), `/m/${memorial.slug}`),
+      newInviteLink,
+    });
+  };
 
   app.get("/health", async () => ({ ok: true }));
 
   app.get("/", async (_request, reply) => {
-    const memorials = store.listMemorials().map((memorial) => ({
-      ...memorial,
-      coverUrl: memorial.media.find((item) => item.kind === "photo")
-        ? mediaUrl(memorial.media.find((item) => item.kind === "photo")!.path)
-        : null,
-    }));
+    const memorials = store.listPublicMemorials().map((memorial) => {
+      const cover = memorial.media.find((item) => item.kind === "photo");
+      return { ...memorial, coverUrl: cover ? mediaUrl(cover.id) : null };
+    });
     return reply.view("index.ejs", { memorials });
   });
 
@@ -164,7 +272,14 @@ export async function createApp(
       maxPhotoMb: bytesToLabel(config.maxPhotoBytes),
       maxVideoMb: bytesToLabel(config.maxVideoBytes),
       requiresWriteToken: Boolean(config.writeToken),
-      values: { birthDate: "", deathDate: "", name: "", story: "" },
+      values: {
+        birthDate: "",
+        deathDate: "",
+        invitees: "Family and friends",
+        name: "",
+        story: "",
+        visibility: "public",
+      },
     });
   });
 
@@ -177,8 +292,10 @@ export async function createApp(
       const values: FormValues = {
         birthDate: "",
         deathDate: "",
+        invitees: "",
         name: "",
         story: "",
+        visibility: "public",
       };
       let writeToken = "";
       const media: MemorialMedia[] = [];
@@ -206,6 +323,8 @@ export async function createApp(
             if (part.fieldname === "birthDate") values.birthDate = value;
             if (part.fieldname === "deathDate") values.deathDate = value;
             if (part.fieldname === "story") values.story = value;
+            if (part.fieldname === "visibility") values.visibility = value;
+            if (part.fieldname === "invitees") values.invitees = value;
             continue;
           }
 
@@ -230,7 +349,6 @@ export async function createApp(
                 : "Videos must be MP4, WebM, or QuickTime files.",
             );
           }
-
           if (kind === "photo" && ++photoCount > 12) {
             part.file.resume();
             throw new UploadError("A memorial can include up to 12 photos.");
@@ -242,16 +360,13 @@ export async function createApp(
 
           const id = randomUUID();
           const relativePath = `${memorialId}/${id}${extension}`;
-          const destination = join(store.mediaDir, relativePath);
           await saveUpload(
             part.file,
-            destination,
+            join(store.mediaDir, relativePath),
             kind === "photo" ? config.maxPhotoBytes : config.maxVideoBytes,
           );
           if (part.file.truncated) {
-            throw new UploadError(
-              `${part.filename} exceeds the configured upload limit.`,
-            );
+            throw new UploadError(`${part.filename} exceeds the configured upload limit.`);
           }
           media.push({
             id,
@@ -271,15 +386,29 @@ export async function createApp(
         );
       }
 
-      if (
-        config.writeToken &&
-        !tokenMatches(writeToken, config.writeToken)
-      ) {
+      if (config.writeToken && !tokenMatches(writeToken, config.writeToken)) {
         return fail("The publishing token is incorrect.");
       }
       const validationError = validateFields(values);
       if (validationError) return fail(validationError);
       if (photoCount === 0) return fail("Add at least one photo.");
+
+      const labels = inviteLabels(values.invitees);
+      if (labels.length > 10) return fail("Create no more than 10 invitations at once.");
+      const createdInvites: CreatedInvite[] =
+        values.visibility === "private"
+          ? (labels.length ? labels : ["Family and friends"]).map((label) => ({
+              id: randomUUID(),
+              label: label.slice(0, 120),
+              token: createAccessToken(),
+            }))
+          : [];
+      const invites: NewMemorialInvite[] = createdInvites.map((invite) => ({
+        id: invite.id,
+        label: invite.label,
+        tokenHash: hashAccessToken(invite.token),
+      }));
+      const stewardToken = createAccessToken();
 
       let memorial;
       try {
@@ -287,37 +416,168 @@ export async function createApp(
           birthDate: values.birthDate || null,
           deathDate: values.deathDate || null,
           id: memorialId,
+          invites,
           media,
           name: values.name.trim(),
-          slug: slugify(values.name),
+          slug:
+            values.visibility === "private"
+              ? `memorial-${randomBytes(8).toString("hex")}`
+              : slugify(values.name),
+          stewardTokenHash: hashAccessToken(stewardToken),
           story: values.story.trim() || null,
+          visibility: values.visibility as Visibility,
         });
       } catch (error) {
         request.log.error({ error }, "memorial could not be persisted");
         return fail("The memorial could not be saved. Please try again.");
       }
 
+      setAccessCookie(
+        request,
+        reply,
+        stewardCookieName(memorial.id),
+        stewardToken,
+      );
+      noStore(reply);
+      const baseUrl = requestBaseUrl(request);
+      return reply.code(201).view("created.ejs", {
+        inviteLinks: createdInvites.map((invite) => ({
+          label: invite.label,
+          url: absoluteUrl(baseUrl, `/invite/${invite.token}`),
+        })),
+        memorial,
+        memorialUrl: absoluteUrl(baseUrl, `/m/${memorial.slug}`),
+        stewardUrl: absoluteUrl(baseUrl, `/steward/${stewardToken}`),
+      });
+    },
+  );
+
+  app.get<{ Params: { token: string } }>(
+    "/invite/:token",
+    async (request, reply) => {
+      const memorial = store.authenticateInvite(hashAccessToken(request.params.token));
+      if (!memorial) return reply.code(404).view("not-found.ejs");
+      setAccessCookie(
+        request,
+        reply,
+        inviteCookieName(memorial.id),
+        request.params.token,
+      );
+      noStore(reply);
       return reply.redirect(`/m/${memorial.slug}`, 303);
+    },
+  );
+
+  app.get<{ Params: { token: string } }>(
+    "/steward/:token",
+    async (request, reply) => {
+      const memorial = store.authenticateSteward(hashAccessToken(request.params.token));
+      if (!memorial) return reply.code(404).view("not-found.ejs");
+      setAccessCookie(
+        request,
+        reply,
+        stewardCookieName(memorial.id),
+        request.params.token,
+      );
+      noStore(reply);
+      return reply.redirect(`/manage/${memorial.slug}`, 303);
     },
   );
 
   app.get<{ Params: { slug: string } }>("/m/:slug", async (request, reply) => {
     const memorial = store.getMemorial(request.params.slug);
-    if (!memorial) {
-      return reply.code(404).view("not-found.ejs");
+    if (!memorial) return reply.code(404).view("not-found.ejs");
+    if (!hasMemorialAccess(request, memorial)) {
+      noStore(reply);
+      return reply.code(401).view("private.ejs", { memorial });
+    }
+    reply.header("Cache-Control", "no-store");
+    if (memorial.visibility !== "public") {
+      reply.header("X-Robots-Tag", "noindex, nofollow");
     }
     return reply.view("memorial.ejs", {
-      memorial: {
-        ...memorial,
-        photos: memorial.media
-          .filter((item) => item.kind === "photo")
-          .map((item) => ({ ...item, url: mediaUrl(item.path) })),
-        videos: memorial.media
-          .filter((item) => item.kind === "video")
-          .map((item) => ({ ...item, url: mediaUrl(item.path) })),
-      },
+      memorial: decorateMemorial(memorial),
     });
   });
+
+  app.get<{ Params: { id: string } }>("/media/:id", async (request, reply) => {
+    const found = store.getMedia(request.params.id);
+    if (!found) {
+      return reply.code(404).view("not-found.ejs");
+    }
+    if (!hasMemorialAccess(request, found.memorial)) {
+      noStore(reply);
+      return reply.code(404).view("not-found.ejs");
+    }
+    const root = `${resolve(store.mediaDir)}${sep}`;
+    const absolutePath = resolve(store.mediaDir, found.media.path);
+    if (!absolutePath.startsWith(root)) {
+      request.log.error({ mediaId: found.media.id }, "invalid stored media path");
+      return reply.code(500).send("Media path is invalid.");
+    }
+    reply.type(found.media.mimeType);
+    reply.header("Cache-Control", "no-store");
+    return reply.send(createReadStream(absolutePath));
+  });
+
+  app.get<{ Params: { slug: string } }>(
+    "/manage/:slug",
+    async (request, reply) => {
+      const memorial = store.getMemorial(request.params.slug);
+      if (!memorial || !hasStewardAccess(request, memorial)) {
+        return reply.code(404).view("not-found.ejs");
+      }
+      return renderManage(request, reply, memorial);
+    },
+  );
+
+  app.post<{ Params: { slug: string } }>(
+    "/manage/:slug/visibility",
+    async (request, reply) => {
+      const memorial = store.getMemorial(request.params.slug);
+      if (!memorial || !hasStewardAccess(request, memorial)) {
+        return reply.code(404).view("not-found.ejs");
+      }
+      const visibility = formBody(request).visibility || "";
+      if (!isVisibility(visibility)) return reply.code(400).send("Invalid visibility.");
+      store.setVisibility(memorial.id, visibility);
+      return reply.redirect(`/manage/${memorial.slug}`, 303);
+    },
+  );
+
+  app.post<{ Params: { slug: string } }>(
+    "/manage/:slug/invites",
+    async (request, reply) => {
+      const memorial = store.getMemorial(request.params.slug);
+      if (!memorial || !hasStewardAccess(request, memorial)) {
+        return reply.code(404).view("not-found.ejs");
+      }
+      const label = (formBody(request).label || "").trim();
+      if (!label || label.length > 120) {
+        return reply.code(400).send("Invitation label must be 1–120 characters.");
+      }
+      const token = createAccessToken();
+      store.createInvite(memorial.id, {
+        id: randomUUID(),
+        label,
+        tokenHash: hashAccessToken(token),
+      });
+      const link = absoluteUrl(requestBaseUrl(request), `/invite/${token}`);
+      return renderManage(request, reply, memorial, link);
+    },
+  );
+
+  app.post<{ Params: { inviteId: string; slug: string } }>(
+    "/manage/:slug/invites/:inviteId/revoke",
+    async (request, reply) => {
+      const memorial = store.getMemorial(request.params.slug);
+      if (!memorial || !hasStewardAccess(request, memorial)) {
+        return reply.code(404).view("not-found.ejs");
+      }
+      store.revokeInvite(memorial.id, request.params.inviteId);
+      return reply.redirect(`/manage/${memorial.slug}`, 303);
+    },
+  );
 
   app.setNotFoundHandler(async (_request, reply) => {
     return reply.code(404).view("not-found.ejs");

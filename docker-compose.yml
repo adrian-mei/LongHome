@@ -3,8 +3,9 @@ services:
     build: .
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "${LONGHOME_HTTP_PORT:-3000}:3000"
     environment:
+      LONGHOME_PUBLIC_URL: ${LONGHOME_PUBLIC_URL:-}
       LONGHOME_WRITE_TOKEN: ${LONGHOME_WRITE_TOKEN:-}
     volumes:
       - ./data:/app/data

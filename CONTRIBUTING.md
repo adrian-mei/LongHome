@@ -80,6 +80,9 @@ change is necessary.
 - Prefer explicit, boring infrastructure over mandatory cloud services.
 - Validate uploads at the server boundary and never trust original filenames.
 - Treat accessibility, privacy, and grief-sensitive language as correctness concerns.
+- Test private page and media denial, invitation acceptance, revocation, and migrations
+  together whenever the access layer changes.
+- Never log, fixture, or commit raw invitation and steward capabilities.
 - Preserve the person; do not impersonate them. AI simulations are outside scope.
 - Avoid claims that one server or company can guarantee literal permanence.
 

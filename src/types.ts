@@ -1,4 +1,5 @@
 export type MediaKind = "photo" | "video";
+export type Visibility = "public" | "unlisted" | "private";
 
 export interface MemorialMedia {
   id: string;
@@ -18,6 +19,21 @@ export interface Memorial {
   name: string;
   slug: string;
   story: string | null;
+  visibility: Visibility;
+}
+
+export interface MemorialInvite {
+  createdAt: string;
+  id: string;
+  label: string;
+  lastUsedAt: string | null;
+  revokedAt: string | null;
+}
+
+export interface NewMemorialInvite {
+  id: string;
+  label: string;
+  tokenHash: string;
 }
 
 export interface NewMemorial {
@@ -27,5 +43,8 @@ export interface NewMemorial {
   media: MemorialMedia[];
   name: string;
   slug: string;
+  stewardTokenHash: string;
   story: string | null;
+  visibility: Visibility;
+  invites: NewMemorialInvite[];
 }

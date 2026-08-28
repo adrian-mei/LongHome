@@ -13,6 +13,7 @@ is self-hosted only; managed hosting is explicitly deferred.
 - `CONTRIBUTING.md`: development workflow and commit rules
 - `SECURITY.md`: private vulnerability reporting policy
 - `src/app.ts`: HTTP routes, upload validation, and rendered page composition
+- `src/access.ts`: capability token, hashing, URL, and cookie-name helpers
 - `src/store.ts`: SQLite schema and persistence boundary
 - `src/views/`: server-rendered EJS pages
 - `src/public/styles.css`: visual system
@@ -40,6 +41,11 @@ Node.js 22 or newer is required. Runtime data lives under `LONGHOME_DATA_DIR` (d
 - Self-hosting and portable data are first-class product behavior.
 - A memorial must have a name and at least one photo; every other biographical field is
   optional.
+- Public memorials are listed. Unlisted memorials are link-only and noindex. Private
+  memorials require a valid invitation or steward capability for both pages and media.
+- Treat invitation and steward URLs as bearer credentials. Store hashes, never raw tokens.
+- Private slugs must not contain the person's name or other biographical data.
+- Existing pre-privacy memorials migrate to public visibility without data loss.
 - Families preserve a person; the software must not impersonate one.
 - Never add AI simulation of a deceased person without a new, explicit project decision.
 - Never use real private memorial data in fixtures, examples, screenshots, or tests.

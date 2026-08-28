@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
+import type { Response } from "light-my-request";
 import { createApp } from "./app.js";
 
 const apps: FastifyInstance[] = [];
@@ -64,6 +65,19 @@ function multipartBody(
   };
 }
 
+function extract(body: string, pattern: RegExp): string {
+  const match = body.match(pattern);
+  expect(match, `Expected ${pattern} in response body`).not.toBeNull();
+  return match![1]!;
+}
+
+function responseCookie(response: Response): string {
+  const header = response.headers["set-cookie"];
+  const value = Array.isArray(header) ? header[0] : header;
+  expect(value).toBeTruthy();
+  return value!.split(";", 1)[0]!;
+}
+
 describe("LongHome", () => {
   it("serves its health endpoint", async () => {
     const app = await testApp();
@@ -91,12 +105,16 @@ describe("LongHome", () => {
       url: "/memorials",
     });
 
-    expect(created.statusCode).toBe(303);
-    expect(created.headers.location).toMatch(/^\/m\/mei-yingxuan-/);
+    expect(created.statusCode).toBe(201);
+    expect(created.body).toContain("Steward link");
+    const memorialPath = extract(
+      created.body,
+      /href="(\/m\/mei-yingxuan-[^"]+)"/,
+    );
 
     const page = await app.inject({
       method: "GET",
-      url: created.headers.location!,
+      url: memorialPath,
     });
     expect(page.statusCode).toBe(200);
     expect(page.body).toContain("Mei Yingxuan");
@@ -114,7 +132,158 @@ describe("LongHome", () => {
       payload: multipart.body,
       url: "/memorials",
     });
-    expect(response.statusCode).toBe(303);
+    expect(response.statusCode).toBe(201);
+    expect(response.body).toContain("A Minimal Memorial");
+  });
+
+  it("keeps an unlisted memorial off the directory and out of search indexes", async () => {
+    const app = await testApp();
+    const multipart = multipartBody({
+      name: "Quiet Link",
+      visibility: "unlisted",
+    });
+    const created = await app.inject({
+      headers: { "content-type": multipart.contentType },
+      method: "POST",
+      payload: multipart.body,
+      url: "/memorials",
+    });
+    const memorialPath = extract(
+      created.body,
+      /href="(\/m\/quiet-link-[^"]+)"/,
+    );
+
+    const home = await app.inject({ method: "GET", url: "/" });
+    expect(home.body).not.toContain("Quiet Link");
+
+    const memorial = await app.inject({ method: "GET", url: memorialPath });
+    expect(memorial.statusCode).toBe(200);
+    expect(memorial.body).toContain('name="robots" content="noindex, nofollow"');
+  });
+
+  it("guards private pages and media with revocable invitations", async () => {
+    const app = await testApp();
+    const multipart = multipartBody({
+      invitees: "Immediate family",
+      name: "Private Person",
+      visibility: "private",
+    });
+    const created = await app.inject({
+      headers: { "content-type": multipart.contentType },
+      method: "POST",
+      payload: multipart.body,
+      url: "/memorials",
+    });
+    expect(created.statusCode).toBe(201);
+    const memorialPath = extract(
+      created.body,
+      /href="(\/m\/memorial-[^"]+)"/,
+    );
+    expect(memorialPath).not.toContain("private-person");
+    const slug = memorialPath.replace("/m/", "");
+    const firstInviteToken = extract(
+      created.body,
+      /\/invite\/([a-zA-Z0-9_-]+)/,
+    );
+    const stewardToken = extract(
+      created.body,
+      /\/steward\/([a-zA-Z0-9_-]+)/,
+    );
+
+    const denied = await app.inject({ method: "GET", url: memorialPath });
+    expect(denied.statusCode).toBe(401);
+    expect(denied.body).toContain("held for invited visitors");
+    expect(denied.body).not.toContain("Private Person");
+
+    const home = await app.inject({ method: "GET", url: "/" });
+    expect(home.body).not.toContain("Private Person");
+
+    const accepted = await app.inject({
+      method: "GET",
+      url: `/invite/${firstInviteToken}`,
+    });
+    expect(accepted.statusCode).toBe(303);
+    const inviteCookie = responseCookie(accepted);
+
+    const memorial = await app.inject({
+      headers: { cookie: inviteCookie },
+      method: "GET",
+      url: memorialPath,
+    });
+    expect(memorial.statusCode).toBe(200);
+    const mediaPath = extract(memorial.body, /src="(\/media\/[^"]+)"/);
+
+    const deniedMedia = await app.inject({ method: "GET", url: mediaPath });
+    expect(deniedMedia.statusCode).toBe(404);
+    const allowedMedia = await app.inject({
+      headers: { cookie: inviteCookie },
+      method: "GET",
+      url: mediaPath,
+    });
+    expect(allowedMedia.statusCode).toBe(200);
+    expect(allowedMedia.headers["cache-control"]).toBe("no-store");
+
+    const stewardAccepted = await app.inject({
+      method: "GET",
+      url: `/steward/${stewardToken}`,
+    });
+    expect(stewardAccepted.statusCode).toBe(303);
+    const stewardCookie = responseCookie(stewardAccepted);
+
+    const newInvite = await app.inject({
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        cookie: stewardCookie,
+      },
+      method: "POST",
+      payload: "label=Test+invite",
+      url: `/manage/${slug}/invites`,
+    });
+    expect(newInvite.statusCode).toBe(200);
+    const newInviteToken = extract(
+      newInvite.body,
+      /\/invite\/([a-zA-Z0-9_-]+)/,
+    );
+    const newInviteId = extract(
+      newInvite.body,
+      /Test invite[\s\S]*?\/invites\/([^/"]+)\/revoke/,
+    );
+
+    const newInviteAccepted = await app.inject({
+      method: "GET",
+      url: `/invite/${newInviteToken}`,
+    });
+    const newInviteCookie = responseCookie(newInviteAccepted);
+
+    const revoked = await app.inject({
+      headers: { cookie: stewardCookie },
+      method: "POST",
+      url: `/manage/${slug}/invites/${newInviteId}/revoke`,
+    });
+    expect(revoked.statusCode).toBe(303);
+
+    const deniedAfterRevoke = await app.inject({
+      headers: { cookie: newInviteCookie },
+      method: "GET",
+      url: memorialPath,
+    });
+    expect(deniedAfterRevoke.statusCode).toBe(401);
+
+    const madePublic = await app.inject({
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        cookie: stewardCookie,
+      },
+      method: "POST",
+      payload: "visibility=public",
+      url: `/manage/${slug}/visibility`,
+    });
+    expect(madePublic.statusCode).toBe(303);
+
+    const publicHome = await app.inject({ method: "GET", url: "/" });
+    expect(publicHome.body).toContain("Private Person");
+    const publicMemorial = await app.inject({ method: "GET", url: memorialPath });
+    expect(publicMemorial.statusCode).toBe(200);
   });
 
   it("rejects a memorial without a photo", async () => {

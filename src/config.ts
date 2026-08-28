@@ -6,6 +6,7 @@ export interface LongHomeConfig {
   maxPhotoBytes: number;
   maxVideoBytes: number;
   port: number;
+  publicUrl: string | null;
   writeToken: string | null;
 }
 
@@ -31,6 +32,7 @@ export function loadConfig(
     maxVideoBytes:
       positiveInteger(process.env.LONGHOME_MAX_VIDEO_MB, 250) * megabyte,
     port: positiveInteger(process.env.LONGHOME_PORT, 3000),
+    publicUrl: process.env.LONGHOME_PUBLIC_URL?.replace(/\/$/, "") || null,
     writeToken,
     ...overrides,
   };

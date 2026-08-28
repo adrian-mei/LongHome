@@ -54,6 +54,28 @@
           <textarea name="story" rows="8" maxlength="20000" placeholder="Write as much or as little as you want."><%= values.story %></textarea>
         </label>
 
+        <fieldset class="visibility-fieldset">
+          <legend>Who can visit?</legend>
+          <label class="visibility-option">
+            <input type="radio" name="visibility" value="public" <%= values.visibility === "public" ? "checked" : "" %> />
+            <span><strong>Public</strong> Listed on this LongHome and open to everyone.</span>
+          </label>
+          <label class="visibility-option">
+            <input type="radio" name="visibility" value="unlisted" <%= values.visibility === "unlisted" ? "checked" : "" %> />
+            <span><strong>Unlisted</strong> Open to anyone with the memorial link, but not listed or indexed.</span>
+          </label>
+          <label class="visibility-option">
+            <input type="radio" name="visibility" value="private" <%= values.visibility === "private" ? "checked" : "" %> />
+            <span><strong>Private</strong> Only visitors holding an active invitation can see the page or media.</span>
+          </label>
+        </fieldset>
+
+        <label>
+          <span>Private invitation labels <em>one per line</em></span>
+          <textarea name="invitees" rows="4" maxlength="1500" placeholder="Immediate family&#10;Close friends"><%= values.invitees %></textarea>
+          <small>Used only for private memorials. LongHome creates a separate revocable link for each label; it does not send email.</small>
+        </label>
+
         <label class="upload-field">
           <span>Photographs <strong>at least one required</strong></span>
           <input type="file" name="photos" accept="image/jpeg,image/png,image/webp,image/gif" multiple required />
@@ -67,8 +89,8 @@
         </label>
 
         <div class="form-actions">
-          <button class="button" type="submit">Publish their LongHome</button>
-          <p>Publishing creates a public page on this server.</p>
+          <button class="button" type="submit">Create their LongHome</button>
+          <p>You will receive a private steward link after creation.</p>
         </div>
       </form>
     </main>

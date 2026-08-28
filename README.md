@@ -17,9 +17,25 @@ LongHome is a standalone personal project. It is not part of the Cogito product 
 - Require at least one photo; accept up to 12.
 - Add optional birth and end dates, a story, and up to 4 videos.
 - Publish a stable memorial URL.
-- Browse every memorial hosted on an installation.
+- Choose public, unlisted, or private access for each memorial.
+- Create separate invitation links for private family and friend groups.
+- Protect private photographs and videos as well as the memorial page.
+- Use a private steward link to change visibility or revoke invitations.
+- Browse every public memorial hosted on an installation.
 - Keep all metadata and media in one portable data directory.
 - Optionally protect publishing with a shared write token.
+
+## Access model
+
+| Visibility | Directory | Search engines | Visitor access |
+| --- | --- | --- | --- |
+| Public | Listed | Allowed | Everyone |
+| Unlisted | Hidden | `noindex` | Anyone with the memorial URL |
+| Private | Hidden | `noindex` | Active invitation or steward capability required |
+
+Private memorials use opaque URLs that do not contain the person's name. Their media is
+served through the same authorization check as the page. LongHome creates revocable
+invitation links but does not send email; the family steward shares each link directly.
 
 ## Self-host with Docker
 
@@ -34,7 +50,8 @@ Open [http://localhost:3000](http://localhost:3000). LongHome stores its SQLite 
 and uploaded media in `./data`. Back up that directory to preserve the entire instance.
 
 For an internet-facing installation, set a strong `LONGHOME_WRITE_TOKEN` in `.env`, place
-LongHome behind HTTPS, and back up `./data` regularly.
+LongHome behind HTTPS, set `LONGHOME_PUBLIC_URL` to the external origin, and back up
+`./data` regularly.
 
 ## Run locally
 
@@ -58,8 +75,10 @@ npm run build
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `LONGHOME_DATA_DIR` | `./data` | SQLite database and uploaded media |
+| `LONGHOME_HTTP_PORT` | `3000` | Host port used by Docker Compose |
 | `LONGHOME_HOST` | `0.0.0.0` | Listening address |
 | `LONGHOME_PORT` | `3000` | HTTP port |
+| `LONGHOME_PUBLIC_URL` | derived from request | External origin used in invite links |
 | `LONGHOME_WRITE_TOKEN` | unset | Optional token required to publish |
 | `LONGHOME_MAX_PHOTO_MB` | `15` | Per-photo upload limit |
 | `LONGHOME_MAX_VIDEO_MB` | `250` | Per-video upload limit |
@@ -69,6 +88,13 @@ npm run build
 LongHome is self-hosted software first. A managed service may come later, but there is no
 managed hosting product today. Read the [product boundary](docs/PRODUCT.md) for the MVP
 contract and ethical guardrails.
+
+## Capability-link safety
+
+Invitation and steward links are bearer capabilities: possession grants access. Share
+them through a trusted channel. The steward link can create or revoke invitations and
+change visibility, so keep it separate from visitor invitations. LongHome stores only
+token hashes and cannot reveal an existing link again.
 
 ## Contributing and security
 

@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Memorial created · LongHome</title>
+    <link rel="stylesheet" href="/assets/styles.css" />
+  </head>
+  <body>
+    <header class="site-header shell">
+      <a class="wordmark" href="/">LongHome</a>
+      <a class="text-link" href="/m/<%= memorial.slug %>">View memorial</a>
+    </header>
+
+    <main class="access-shell shell">
+      <p class="eyebrow">Memorial created</p>
+      <h1><%= memorial.name %> has a place here.</h1>
+      <p class="access-lead">
+        This memorial is <strong><%= memorial.visibility %></strong>. Save the steward link
+        before leaving this page; LongHome stores only its secure fingerprint and cannot
+        show the original link again.
+      </p>
+
+      <section class="link-panel" aria-labelledby="memorial-link-title">
+        <h2 id="memorial-link-title">Memorial link</h2>
+        <a class="break-link" href="<%= memorialUrl %>"><%= memorialUrl %></a>
+      </section>
+
+      <section class="link-panel link-panel-important" aria-labelledby="steward-link-title">
+        <p class="eyebrow">Keep private</p>
+        <h2 id="steward-link-title">Steward link</h2>
+        <p>Anyone with this link can change visibility and create or revoke invitations.</p>
+        <a class="break-link" href="<%= stewardUrl %>"><%= stewardUrl %></a>
+      </section>
+
+      <% if (inviteLinks.length > 0) { %>
+        <section class="link-panel" aria-labelledby="invite-links-title">
+          <h2 id="invite-links-title">Invitation links</h2>
+          <p>Send each link only to the people named. Invitations can be revoked later.</p>
+          <div class="invite-links">
+            <% inviteLinks.forEach((invite) => { %>
+              <div>
+                <strong><%= invite.label %></strong>
+                <a class="break-link" href="<%= invite.url %>"><%= invite.url %></a>
+              </div>
+            <% }) %>
+          </div>
+        </section>
+      <% } %>
+
+      <div class="access-actions">
+        <a class="button" href="/m/<%= memorial.slug %>">Open memorial</a>
+        <a class="text-link" href="/manage/<%= memorial.slug %>">Manage access</a>
+      </div>
+    </main>
+  </body>
+</html>

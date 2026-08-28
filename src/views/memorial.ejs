@@ -4,6 +4,9 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content="In memory of <%= memorial.name %>." />
+    <% if (memorial.visibility !== "public") { %>
+      <meta name="robots" content="noindex, nofollow" />
+    <% } %>
     <title><%= memorial.name %> · LongHome</title>
     <link rel="stylesheet" href="/assets/styles.css" />
   </head>
@@ -59,7 +62,7 @@
     </main>
 
     <footer class="site-footer shell">
-      <p>Held with care in LongHome.</p>
+      <p>Held with care in LongHome · <%= memorial.visibility %> memorial</p>
     </footer>
   </body>
 </html>

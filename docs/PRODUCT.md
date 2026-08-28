@@ -12,8 +12,18 @@ A visitor can create a memorial with:
 - an optional written story; and
 - optional uploaded videos.
 
-The memorial receives a stable public URL on that LongHome installation. The home page
-lists the memorials hosted by the installation.
+The memorial receives a stable URL on that LongHome installation and one of three access
+policies:
+
+- **Public:** listed by the installation and open to everyone.
+- **Unlisted:** absent from the directory and search indexes, but open to anyone holding
+  the memorial URL.
+- **Private:** absent from the directory and indexes; both the page and its media require
+  a live invitation or steward capability.
+
+Every new memorial receives a private steward capability. Stewards can move the memorial
+between visibility modes, create separately revocable invitations, and revoke access.
+LongHome creates links but does not send email.
 
 ## Operating model
 
@@ -27,6 +37,9 @@ repository, or promise.
 ## Guardrails
 
 - Families retain control of their data and server.
+- Private access must protect media bytes as well as rendered pages.
+- Private memorial URLs must not expose the person's name.
+- Invitation and steward secrets are stored only as hashes and shown only when created.
 - Exportability and recoverable storage matter more than lock-in.
 - The software preserves a person; it does not impersonate them.
 - AI simulations of deceased people are outside the project boundary.

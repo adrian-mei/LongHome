@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Manage <%= memorial.name %> · LongHome</title>
+    <link rel="stylesheet" href="/assets/styles.css" />
+  </head>
+  <body>
+    <header class="site-header shell">
+      <a class="wordmark" href="/">LongHome</a>
+      <a class="text-link" href="/m/<%= memorial.slug %>">View memorial</a>
+    </header>
+
+    <main class="manage-shell shell">
+      <p class="eyebrow">Family stewardship</p>
+      <h1>Manage <%= memorial.name %></h1>
+      <p class="access-lead">This page is available only through the private steward capability.</p>
+
+      <section class="manage-section">
+        <h2>Visibility</h2>
+        <form method="post" action="/manage/<%= memorial.slug %>/visibility" class="inline-form">
+          <label>
+            <span class="sr-only">Visibility</span>
+            <select name="visibility">
+              <option value="public" <%= memorial.visibility === "public" ? "selected" : "" %>>Public · listed for everyone</option>
+              <option value="unlisted" <%= memorial.visibility === "unlisted" ? "selected" : "" %>>Unlisted · link only</option>
+              <option value="private" <%= memorial.visibility === "private" ? "selected" : "" %>>Private · invitation required</option>
+            </select>
+          </label>
+          <button class="button button-small" type="submit">Save visibility</button>
+        </form>
+      </section>
+
+      <section class="manage-section">
+        <h2>Create an invitation</h2>
+        <p>Use a person or group name you will recognize if access must be revoked later.</p>
+        <form method="post" action="/manage/<%= memorial.slug %>/invites" class="inline-form">
+          <label>
+            <span class="sr-only">Invitation label</span>
+            <input name="label" maxlength="120" placeholder="Lee family" required />
+          </label>
+          <button class="button button-small" type="submit">Create invite link</button>
+        </form>
+
+        <% if (newInviteLink) { %>
+          <div class="new-invite" role="status">
+            <strong>New invitation created. Copy it now:</strong>
+            <a class="break-link" href="<%= newInviteLink %>"><%= newInviteLink %></a>
+          </div>
+        <% } %>
+      </section>
+
+      <section class="manage-section">
+        <h2>Invitations</h2>
+        <% if (invites.length === 0) { %>
+          <p>No invitations have been created.</p>
+        <% } else { %>
+          <div class="invite-list">
+            <% invites.forEach((invite) => { %>
+              <div class="invite-row">
+                <div>
+                  <strong><%= invite.label %></strong>
+                  <small>
+                    Created <%= invite.createdAt %>
+                    <% if (invite.lastUsedAt) { %> · last used <%= invite.lastUsedAt %><% } %>
+                    <% if (invite.revokedAt) { %> · revoked <%= invite.revokedAt %><% } %>
+                  </small>
+                </div>
+                <% if (!invite.revokedAt) { %>
+                  <form method="post" action="/manage/<%= memorial.slug %>/invites/<%= invite.id %>/revoke">
+                    <button class="button-secondary" type="submit">Revoke</button>
+                  </form>
+                <% } else { %>
+                  <span class="status-pill">Revoked</span>
+                <% } %>
+              </div>
+            <% }) %>
+          </div>
+        <% } %>
+      </section>
+
+      <p class="manage-note">
+        Invitation links are shown only when created. Existing links are stored as secure
+        fingerprints so the server cannot reveal them later.
+      </p>
+    </main>
+  </body>
+</html>
